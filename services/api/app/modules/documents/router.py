@@ -41,6 +41,12 @@ from app.modules.leases.service import (
 from app.modules.leases.service import (
     require_party as require_lease_party,
 )
+from app.modules.maintenance.service import (
+    NotPartyToTicketError,
+    TicketNotFoundError,
+    get_ticket,
+    require_ticket_access,
+)
 from app.modules.properties.service import PropertyNotFoundError, get_owned_property
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -50,7 +56,7 @@ def _verify_ownership(db: Session, current: CurrentUser, owner_type: str, owner_
     """Authorizes a caller against the entity a document is attached to.
 
     Grows as new owner_types gain their own document ownership: 'property'
-    (Phase 1), 'lease' and 'inspection' (Phase 2).
+    (Phase 1), 'lease' and 'inspection' (Phase 2), 'ticket' (Phase 4).
     """
     if owner_type == "property":
         try:
@@ -75,6 +81,14 @@ def _verify_ownership(db: Session, current: CurrentUser, owner_type: str, owner_
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection"
             ) from None
+    elif owner_type == "ticket":
+        try:
+            ticket = get_ticket(db, owner_id)
+            require_ticket_access(db, ticket, current.user.id, current.role)
+        except TicketNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+        except NotPartyToTicketError:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported owner_type: {owner_type}")
 

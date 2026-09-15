@@ -5,6 +5,7 @@ from app.models.expense import Expense, ExpenseStatus
 from app.models.inspection import Inspection, InspectionType
 from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
+from app.models.maintenance import MaintenanceTicket, TicketPriority, TicketStatus
 from app.models.owner_profile import (
     AuthorizedRepresentative,
     KycStatus,
@@ -47,6 +48,7 @@ __all__ = [
     "LeaseStatus",
     "LedgerEntry",
     "LedgerEntryType",
+    "MaintenanceTicket",
     "OwnerProfile",
     "OwnershipType",
     "ParkingSpot",
@@ -60,6 +62,8 @@ __all__ = [
     "StorageUnit",
     "TenantProfile",
     "TenantVerificationStatus",
+    "TicketPriority",
+    "TicketStatus",
     "Unit",
     "User",
 ]

@@ -5,11 +5,13 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.modules.auth.dependencies import CurrentUser, get_current_user
+from app.modules.inspections.service import NotPartyToInspectionError, verify_property_access
 from app.modules.properties.schemas import PropertyCreate, PropertyOut, PropertyUpdate
 from app.modules.properties.service import (
     PropertyNotFoundError,
     create_property,
     get_owned_property,
+    get_property_by_id,
     list_all_properties,
     list_properties_for_owner,
     update_property,
@@ -49,11 +51,18 @@ def read(
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PropertyOut:
-    _require_owner(current)
     try:
+        if current.role == "admin":
+            return PropertyOut.model_validate(get_property_by_id(db, property_id))
+        if current.role == "tenant":
+            verify_property_access(db, property_id, current.user.id)
+            return PropertyOut.model_validate(get_property_by_id(db, property_id))
+        _require_owner(current)
         return PropertyOut.model_validate(get_owned_property(db, current.user.id, property_id))
     except PropertyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPartyToInspectionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this property") from None
 
 
 @router.patch("/{property_id}", response_model=PropertyOut)

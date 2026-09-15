@@ -166,3 +166,26 @@ export interface Expense {
   approved_by: string | null;
   approved_at: string | null;
 }
+
+export type TicketStatus = "open" | "assigned" | "in_progress" | "resolved" | "closed";
+export type TicketPriority = "low" | "medium" | "high" | "urgent";
+
+export interface MaintenanceTicket {
+  id: string;
+  property_id: string;
+  category: string;
+  description: string;
+  priority: TicketPriority;
+  status: TicketStatus;
+  raised_by: string;
+  assigned_to: string | null;
+  resolution_notes: string | null;
+  closed_at: string | null;
+  created_at: string;
+}
+
+export interface FieldStaffUser {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}

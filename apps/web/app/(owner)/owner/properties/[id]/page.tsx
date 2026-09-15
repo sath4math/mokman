@@ -4,11 +4,19 @@ import { notFound, redirect } from "next/navigation";
 import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { DocumentRecord, Expense, Lease, Property, PropertyStatement } from "@/lib/types";
+import type {
+  DocumentRecord,
+  Expense,
+  Lease,
+  MaintenanceTicket,
+  Property,
+  PropertyStatement,
+} from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import { ExpensesPanel } from "./expenses-panel";
 import styles from "./property-detail.module.css";
+import { TicketsPanel } from "./tickets-panel";
 
 export default async function PropertyDetailPage({
   params,
@@ -19,12 +27,13 @@ export default async function PropertyDetailPage({
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const [property, documents, leases, statement, expenses] = await Promise.all([
+  const [property, documents, leases, statement, expenses, tickets] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
     backendFetch<Lease[]>("/leases"),
     backendFetch<PropertyStatement>(`/finance/statement?property_id=${id}`),
     backendFetch<Expense[]>(`/expenses?property_id=${id}`),
+    backendFetch<MaintenanceTicket[]>(`/maintenance/tickets?property_id=${id}`),
   ]);
 
   if (!property) notFound();
@@ -119,6 +128,8 @@ export default async function PropertyDetailPage({
       </section>
 
       <ExpensesPanel propertyId={property.id} initialExpenses={expenses ?? []} />
+
+      <TicketsPanel propertyId={property.id} initialTickets={tickets ?? []} />
 
       <DocumentVault ownerType="property" ownerId={property.id} initialDocuments={documents ?? []} />
     </main>

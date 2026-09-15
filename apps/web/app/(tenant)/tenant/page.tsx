@@ -54,6 +54,12 @@ export default async function TenantHomePage() {
         </Link>
       </section>
 
+      <p>
+        <Link href="/tenant/tickets" className={ui.linkPrimary}>
+          Maintenance tickets →
+        </Link>
+      </p>
+
       <section className={styles.leaseSection}>
         <h2 className={styles.leaseHeading}>Your lease</h2>
         {activeLeases.length > 0 ? (
