@@ -3,8 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router
+from app.modules.inspections.router import router as inspections_router
+from app.modules.leases.router import router as leases_router
 from app.modules.owner.router import router as owner_router
 from app.modules.properties.router import router as properties_router
+from app.modules.tenant.router import router as tenant_router
 
 app = FastAPI(title="Mokman API")
 
@@ -18,7 +21,10 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(owner_router)
+app.include_router(tenant_router)
 app.include_router(properties_router)
+app.include_router(leases_router)
+app.include_router(inspections_router)
 app.include_router(documents_router)
 
 

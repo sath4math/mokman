@@ -25,23 +25,58 @@ from app.modules.documents.service import (
     get_document,
     list_documents,
 )
+from app.modules.inspections.service import (
+    InspectionNotFoundError,
+    NotPartyToInspectionError,
+    get_inspection,
+)
+from app.modules.inspections.service import (
+    require_party as require_inspection_party,
+)
+from app.modules.leases.service import (
+    LeaseNotFoundError,
+    NotPartyToLeaseError,
+    get_lease,
+)
+from app.modules.leases.service import (
+    require_party as require_lease_party,
+)
 from app.modules.properties.service import PropertyNotFoundError, get_owned_property
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 def _verify_ownership(db: Session, current: CurrentUser, owner_type: str, owner_id: uuid.UUID) -> None:
-    """Only 'property' entities exist to attach documents to today.
+    """Authorizes a caller against the entity a document is attached to.
 
-    This is the single place that grows as tenants/leases/etc. gain their
-    own document ownership in later phases.
+    Grows as new owner_types gain their own document ownership: 'property'
+    (Phase 1), 'lease' and 'inspection' (Phase 2).
     """
-    if owner_type != "property":
+    if owner_type == "property":
+        try:
+            get_owned_property(db, current.user.id, owner_id)
+        except PropertyNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    elif owner_type == "lease":
+        try:
+            lease = get_lease(db, owner_id)
+            require_lease_party(db, lease, current.user.id)
+        except LeaseNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lease not found") from None
+        except NotPartyToLeaseError:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this lease") from None
+    elif owner_type == "inspection":
+        try:
+            inspection = get_inspection(db, owner_id)
+            require_inspection_party(db, inspection, current.user.id)
+        except InspectionNotFoundError:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found") from None
+        except NotPartyToInspectionError:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection"
+            ) from None
+    else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported owner_type: {owner_type}")
-    try:
-        get_owned_property(db, current.user.id, owner_id)
-    except PropertyNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
 
 
 @router.post("/presign", response_model=PresignResponse)
