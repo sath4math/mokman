@@ -104,4 +104,65 @@ export interface Inspection {
   tenant_signed_off_at: string | null;
   deposit_deduction: number | null;
   deposit_refund: number | null;
+  settled_at: string | null;
+}
+
+export type InvoiceStatus = "pending" | "partially_paid" | "paid" | "overdue" | "cancelled";
+
+export interface RentInvoice {
+  id: string;
+  lease_id: string;
+  property_id: string;
+  period_start: string;
+  period_end: string;
+  due_date: string;
+  amount_due: number;
+  status: InvoiceStatus;
+}
+
+export type LedgerEntryType =
+  | "rent_payment"
+  | "mokman_fee"
+  | "deposit_collected"
+  | "deposit_deduction"
+  | "deposit_refund"
+  | "expense";
+
+export interface LedgerEntry {
+  id: string;
+  property_id: string;
+  lease_id: string | null;
+  invoice_id: string | null;
+  expense_id: string | null;
+  inspection_id: string | null;
+  entry_type: LedgerEntryType;
+  amount: number;
+  method: string | null;
+  reference_note: string | null;
+  recorded_by: string;
+  occurred_at: string;
+}
+
+export interface PropertyStatement {
+  year: number;
+  month: number;
+  rent_collected: number;
+  expenses: number;
+  mokman_fee: number;
+  net_payable: number;
+  entries: LedgerEntry[];
+}
+
+export type ExpenseStatus = "pending" | "approved" | "rejected";
+
+export interface Expense {
+  id: string;
+  property_id: string;
+  category: string;
+  amount: number;
+  description: string | null;
+  status: ExpenseStatus;
+  submitted_by: string;
+  approved_by: string | null;
+  approved_at: string | null;
 }

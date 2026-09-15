@@ -7,11 +7,14 @@ from app.database import get_db
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.inspections.schemas import InspectionCreate, InspectionOut, InspectionUpdate
 from app.modules.inspections.service import (
+    DepositMismatchError,
     InspectionAlreadySignedError,
     InspectionNotFoundError,
+    InspectionNotReadyForSettlementError,
     NotPartyToInspectionError,
     create_inspection,
     list_inspections,
+    settle_deposit,
     sign_off_inspection,
     update_inspection,
     verify_property_access,
@@ -91,5 +94,32 @@ def sign_off(
     except NotPartyToInspectionError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection"
+        ) from None
+    return InspectionOut.model_validate(inspection)
+
+
+@router.post("/{inspection_id}/settle-deposit", response_model=InspectionOut)
+def settle(
+    inspection_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> InspectionOut:
+    try:
+        inspection = settle_deposit(db, inspection_id, current.user.id)
+    except InspectionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found") from None
+    except NotPartyToInspectionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection"
+        ) from None
+    except InspectionNotReadyForSettlementError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Inspection is not a fully signed-off, unsettled move-out with deposit numbers set",
+        ) from None
+    except DepositMismatchError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Deposit deduction + refund must equal the original security deposit",
         ) from None
     return InspectionOut.model_validate(inspection)

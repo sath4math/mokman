@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.inspection import Inspection
+from app.models.inspection import Inspection, InspectionType
 from app.models.lease import Lease
+from app.models.ledger import LedgerEntryType
 from app.models.property import Property
+from app.modules.finance.service import record_ledger_entry
 from app.modules.inspections.schemas import InspectionCreate, InspectionUpdate
 from app.modules.properties.service import PropertyNotFoundError
 
@@ -20,6 +22,14 @@ class NotPartyToInspectionError(Exception):
 
 
 class InspectionAlreadySignedError(Exception):
+    pass
+
+
+class InspectionNotReadyForSettlementError(Exception):
+    pass
+
+
+class DepositMismatchError(Exception):
     pass
 
 
@@ -115,6 +125,53 @@ def sign_off_inspection(db: Session, inspection_id: uuid.UUID, user_id: uuid.UUI
     else:
         inspection.tenant_signed_off_at = now
 
+    db.commit()
+    db.refresh(inspection)
+    return inspection
+
+
+def settle_deposit(db: Session, inspection_id: uuid.UUID, user_id: uuid.UUID) -> Inspection:
+    inspection = get_inspection(db, inspection_id)
+    require_party(db, inspection, user_id)
+
+    if (
+        inspection.inspection_type != InspectionType.MOVE_OUT
+        or not (inspection.owner_signed_off_at and inspection.tenant_signed_off_at)
+        or inspection.settled_at is not None
+        or inspection.deposit_deduction is None
+        or inspection.deposit_refund is None
+        or inspection.lease_id is None
+    ):
+        raise InspectionNotReadyForSettlementError
+
+    lease = db.get(Lease, inspection.lease_id)
+    if lease is None:
+        raise InspectionNotReadyForSettlementError
+
+    total = inspection.deposit_deduction + inspection.deposit_refund
+    if abs(total - lease.security_deposit) > 0.01:
+        raise DepositMismatchError
+
+    record_ledger_entry(
+        db,
+        property_id=inspection.property_id,
+        entry_type=LedgerEntryType.DEPOSIT_DEDUCTION,
+        amount=inspection.deposit_deduction,
+        recorded_by=user_id,
+        lease_id=lease.id,
+        inspection_id=inspection.id,
+    )
+    record_ledger_entry(
+        db,
+        property_id=inspection.property_id,
+        entry_type=LedgerEntryType.DEPOSIT_REFUND,
+        amount=inspection.deposit_refund,
+        recorded_by=user_id,
+        lease_id=lease.id,
+        inspection_id=inspection.id,
+    )
+
+    inspection.settled_at = datetime.now(UTC)
     db.commit()
     db.refresh(inspection)
     return inspection

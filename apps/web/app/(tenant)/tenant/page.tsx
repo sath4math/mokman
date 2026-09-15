@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { Lease, TenantProfile } from "@/lib/types";
+import type { Lease, RentInvoice, TenantProfile } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./tenant-dashboard.module.css";
@@ -20,6 +20,19 @@ export default async function TenantHomePage() {
 
   const activeLeases = (leases ?? []).filter(
     (lease) => lease.status !== "terminated" && lease.status !== "expired",
+  );
+
+  const nextInvoiceByLease = new Map<string, RentInvoice | undefined>();
+  await Promise.all(
+    activeLeases
+      .filter((lease) => lease.status === "active")
+      .map(async (lease) => {
+        const invoices = await backendFetch<RentInvoice[]>(`/rent/invoices?lease_id=${lease.id}`);
+        nextInvoiceByLease.set(
+          lease.id,
+          invoices?.find((inv) => inv.status !== "paid" && inv.status !== "cancelled"),
+        );
+      }),
   );
 
   return (
@@ -57,6 +70,13 @@ export default async function TenantHomePage() {
                   <p className={styles.leaseRent}>Monthly rent: {lease.monthly_rent}</p>
                   {lease.status === "pending_acknowledgment" && !lease.tenant_acknowledged_at && (
                     <p className={ui.errorText}>Action needed: acknowledge this lease</p>
+                  )}
+                  {nextInvoiceByLease.get(lease.id) && (
+                    <p className={ui.faintText}>
+                      Next payment due {nextInvoiceByLease.get(lease.id)!.due_date}:{" "}
+                      {nextInvoiceByLease.get(lease.id)!.amount_due} (
+                      {nextInvoiceByLease.get(lease.id)!.status.replace(/_/g, " ")})
+                    </p>
                   )}
                 </Link>
               </li>

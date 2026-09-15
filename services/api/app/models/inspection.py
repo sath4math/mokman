@@ -39,7 +39,7 @@ class Inspection(Base, TimestampMixin):
     owner_signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tenant_signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Move-out only. A plain recorded number, not a ledger — the real
-    # deposit ledger is Phase 3 (Rent & Financial Management).
+    # Move-out only.
     deposit_deduction: Mapped[float | None] = mapped_column(Float, nullable=True)
     deposit_refund: Mapped[float | None] = mapped_column(Float, nullable=True)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

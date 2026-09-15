@@ -36,5 +36,6 @@ class InspectionOut(BaseModel):
     tenant_signed_off_at: datetime | None
     deposit_deduction: float | None
     deposit_refund: float | None
+    settled_at: datetime | None
 
     model_config = {"from_attributes": True}

@@ -4,9 +4,10 @@ import { notFound, redirect } from "next/navigation";
 import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { DocumentRecord, Lease, Property } from "@/lib/types";
+import type { DocumentRecord, Expense, Lease, Property, PropertyStatement } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
+import { ExpensesPanel } from "./expenses-panel";
 import styles from "./property-detail.module.css";
 
 export default async function PropertyDetailPage({
@@ -18,10 +19,12 @@ export default async function PropertyDetailPage({
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const [property, documents, leases] = await Promise.all([
+  const [property, documents, leases, statement, expenses] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
     backendFetch<Lease[]>("/leases"),
+    backendFetch<PropertyStatement>(`/finance/statement?property_id=${id}`),
+    backendFetch<Expense[]>(`/expenses?property_id=${id}`),
   ]);
 
   if (!property) notFound();
@@ -87,6 +90,35 @@ export default async function PropertyDetailPage({
           </div>
         )}
       </section>
+
+      <section className={styles.leaseSection}>
+        <h2 className={styles.leaseHeading}>Finances</h2>
+        {statement ? (
+          <div className={ui.card}>
+            <div className={ui.flexCol}>
+              <p>
+                Rent collected: <strong>{statement.rent_collected}</strong>
+              </p>
+              <p>
+                Expenses: <strong>{statement.expenses}</strong>
+              </p>
+              <p>
+                Mokman fee: <strong>{statement.mokman_fee}</strong>
+              </p>
+              <p>
+                Net payable: <strong>{statement.net_payable}</strong>
+              </p>
+            </div>
+            <Link href={`/owner/properties/${property.id}/statement`} className={ui.link}>
+              View full statement →
+            </Link>
+          </div>
+        ) : (
+          <p className={ui.mutedText}>No financial activity yet this month.</p>
+        )}
+      </section>
+
+      <ExpensesPanel propertyId={property.id} initialExpenses={expenses ?? []} />
 
       <DocumentVault ownerType="property" ownerId={property.id} initialDocuments={documents ?? []} />
     </main>

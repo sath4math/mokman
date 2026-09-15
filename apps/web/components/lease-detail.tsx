@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { DocumentVault } from "@/components/document-vault";
-import type { DocumentRecord, Inspection, Lease } from "@/lib/types";
+import type { DocumentRecord, Inspection, Lease, RentInvoice } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./lease-detail.module.css";
@@ -14,22 +14,28 @@ const INSPECTION_LABELS: Record<"move_in" | "move_out", string> = {
   move_out: "Move-out inspection",
 };
 
+const PAYMENT_METHODS = ["upi", "bank_transfer", "cash", "cheque", "other"];
+
 export function LeaseDetail({
   lease: initialLease,
   viewerRole,
   documents,
   inspections: initialInspections,
+  invoices: initialInvoices,
 }: {
   lease: Lease;
   viewerRole: "owner" | "tenant";
   documents: DocumentRecord[];
   inspections: Inspection[];
+  invoices: RentInvoice[];
 }) {
   const router = useRouter();
   const [lease, setLease] = useState(initialLease);
   const [inspections, setInspections] = useState(initialInspections);
+  const [invoices, setInvoices] = useState(initialInvoices);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [paymentDraft, setPaymentDraft] = useState({ amount: "", method: PAYMENT_METHODS[0], reference_note: "" });
 
   const hasAcknowledged =
     viewerRole === "owner" ? !!lease.owner_acknowledged_at : !!lease.tenant_acknowledged_at;
@@ -124,8 +130,52 @@ export function LeaseDetail({
     }
   }
 
+  async function handleRecordPayment(invoiceId: string) {
+    if (!paymentDraft.amount) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/backend/rent/invoices/${invoiceId}/payments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(paymentDraft.amount),
+          method: paymentDraft.method,
+          reference_note: paymentDraft.reference_note || null,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.detail ?? "Failed to record payment");
+        return;
+      }
+      setInvoices((prev) => prev.map((inv) => (inv.id === data.id ? data : inv)));
+      setPaymentDraft({ amount: "", method: PAYMENT_METHODS[0], reference_note: "" });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSettleDeposit(id: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/backend/inspections/${id}/settle-deposit`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.detail ?? "Failed to settle deposit");
+        return;
+      }
+      setInspections((prev) => prev.map((i) => (i.id === data.id ? data : i)));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const moveIn = inspections.find((i) => i.inspection_type === "move_in");
   const moveOut = inspections.find((i) => i.inspection_type === "move_out");
+  const payableInvoice = invoices.find((inv) => inv.status === "pending" || inv.status === "partially_paid" || inv.status === "overdue");
 
   return (
     <div className={styles.wrapper}>
@@ -194,6 +244,73 @@ export function LeaseDetail({
       </section>
 
       <section className={ui.card}>
+        <h2 className={styles.sectionTitle}>Rent</h2>
+        <div className={styles.invoiceList}>
+          {invoices.map((invoice) => (
+            <div key={invoice.id} className={styles.invoiceRow}>
+              <span>
+                {invoice.period_start} – {invoice.period_end}
+              </span>
+              <span className={ui.faintText}>Due {invoice.due_date}</span>
+              <span>{invoice.amount_due}</span>
+              <span className={ui.badge}>{invoice.status.replace(/_/g, " ")}</span>
+            </div>
+          ))}
+          {invoices.length === 0 && <p className={ui.mutedText}>No invoices yet.</p>}
+        </div>
+        {payableInvoice && (
+          <div className={styles.paymentForm}>
+            <p className={ui.faintText}>
+              Record a payment against the {payableInvoice.period_start} invoice (
+              {payableInvoice.amount_due} due)
+            </p>
+            <div className={styles.paymentRow}>
+              <label className={ui.field}>
+                Amount
+                <input
+                  type="number"
+                  className={ui.input}
+                  value={paymentDraft.amount}
+                  onChange={(e) => setPaymentDraft((prev) => ({ ...prev, amount: e.target.value }))}
+                />
+              </label>
+              <label className={ui.field}>
+                Method
+                <select
+                  className={ui.select}
+                  value={paymentDraft.method}
+                  onChange={(e) => setPaymentDraft((prev) => ({ ...prev, method: e.target.value }))}
+                >
+                  {PAYMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {method.replace(/_/g, " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={ui.field}>
+                Reference note
+                <input
+                  className={ui.input}
+                  placeholder="UPI txn id, cheque no., etc."
+                  value={paymentDraft.reference_note}
+                  onChange={(e) => setPaymentDraft((prev) => ({ ...prev, reference_note: e.target.value }))}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => handleRecordPayment(payableInvoice.id)}
+                disabled={busy}
+                className={ui.btnPrimary}
+              >
+                Record payment
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className={ui.card}>
         <h2 className={styles.sectionTitle}>Inspections</h2>
         <div className={styles.inspectionsList}>
           {(["move_in", "move_out"] as const).map((type) => {
@@ -256,6 +373,17 @@ export function LeaseDetail({
                     Sign off
                   </button>
                 )}
+                {type === "move_out" && fullySigned && !inspection.settled_at && (
+                  <button
+                    type="button"
+                    onClick={() => handleSettleDeposit(inspection.id)}
+                    disabled={busy}
+                    className={`${ui.btnSecondary} ${ui.btnSmall}`}
+                  >
+                    Settle deposit
+                  </button>
+                )}
+                {inspection.settled_at && <p className={ui.successText}>Deposit settled.</p>}
               </div>
             );
           })}

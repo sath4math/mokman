@@ -10,6 +10,7 @@ from app.modules.properties.service import (
     PropertyNotFoundError,
     create_property,
     get_owned_property,
+    list_all_properties,
     list_properties_for_owner,
     update_property,
 )
@@ -36,6 +37,8 @@ def create(
 def list_mine(
     current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[PropertyOut]:
+    if current.role == "admin":
+        return [PropertyOut.model_validate(p) for p in list_all_properties(db)]
     _require_owner(current)
     return [PropertyOut.model_validate(p) for p in list_properties_for_owner(db, current.user.id)]
 

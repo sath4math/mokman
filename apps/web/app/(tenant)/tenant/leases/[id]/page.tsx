@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { LeaseDetail } from "@/components/lease-detail";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { DocumentRecord, Inspection, Lease } from "@/lib/types";
+import type { DocumentRecord, Inspection, Lease, RentInvoice } from "@/lib/types";
 
 import styles from "./lease-page.module.css";
 
@@ -19,9 +19,10 @@ export default async function TenantLeaseDetailPage({
   const lease = await backendFetch<Lease>(`/leases/${id}`);
   if (!lease) notFound();
 
-  const [documents, inspections] = await Promise.all([
+  const [documents, inspections, invoices] = await Promise.all([
     backendFetch<DocumentRecord[]>(`/documents?owner_type=lease&owner_id=${id}`),
     backendFetch<Inspection[]>(`/inspections?property_id=${lease.property_id}&lease_id=${id}`),
+    backendFetch<RentInvoice[]>(`/rent/invoices?lease_id=${id}`),
   ]);
 
   return (
@@ -31,6 +32,7 @@ export default async function TenantLeaseDetailPage({
         viewerRole="tenant"
         documents={documents ?? []}
         inspections={inspections ?? []}
+        invoices={invoices ?? []}
       />
     </main>
   );

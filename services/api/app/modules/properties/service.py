@@ -23,9 +23,20 @@ def list_properties_for_owner(db: Session, owner_id: uuid.UUID) -> list[Property
     return list(db.execute(select(Property).where(Property.owner_id == owner_id)).scalars())
 
 
+def list_all_properties(db: Session) -> list[Property]:
+    return list(db.execute(select(Property)).scalars())
+
+
 def get_owned_property(db: Session, owner_id: uuid.UUID, property_id: uuid.UUID) -> Property:
     property_ = db.get(Property, property_id)
     if property_ is None or property_.owner_id != owner_id:
+        raise PropertyNotFoundError
+    return property_
+
+
+def get_property_by_id(db: Session, property_id: uuid.UUID) -> Property:
+    property_ = db.get(Property, property_id)
+    if property_ is None:
         raise PropertyNotFoundError
     return property_
 

@@ -5,9 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.lease import Lease, LeaseStatus
+from app.models.ledger import LedgerEntryType
 from app.models.property import Property, PropertyStatus
 from app.models.user import User
 from app.modules.auth.service import get_user_role
+from app.modules.finance.service import record_ledger_entry
 from app.modules.leases.schemas import LeaseCreate
 from app.modules.properties.service import get_owned_property
 
@@ -95,14 +97,26 @@ def acknowledge_lease(db: Session, lease_id: uuid.UUID, user_id: uuid.UUID) -> L
     else:
         lease.tenant_acknowledged_at = now
 
+    activated = False
     if lease.owner_acknowledged_at and lease.tenant_acknowledged_at and lease.status == LeaseStatus.PENDING_ACKNOWLEDGMENT:
         lease.status = LeaseStatus.ACTIVE
+        activated = True
         property_ = db.get(Property, lease.property_id)
         if property_ is not None:
             property_.status = PropertyStatus.OCCUPIED
 
     db.commit()
     db.refresh(lease)
+
+    if activated:
+        record_ledger_entry(
+            db,
+            property_id=lease.property_id,
+            entry_type=LedgerEntryType.DEPOSIT_COLLECTED,
+            amount=lease.security_deposit,
+            recorded_by=user_id,
+            lease_id=lease.id,
+        )
     return lease
 
 
