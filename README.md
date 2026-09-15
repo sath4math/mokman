@@ -1,67 +1,171 @@
-# Mokman
+# Mokman — Property Operating System
 
-Property Operating System — public site, Owner, Tenant, Field Staff, and Admin
-surfaces as one responsive web application.
+Live at **https://www.mokman.com**. Monorepo: `apps/web` (Next.js 16
+frontend) + `services/api` (FastAPI backend), built phase-by-phase per
+`docs/Mokman_Phase_Wise_Development_Plan.md`.
 
-See [`docs/Mokman_Product_Feature_Specification.md`](docs/Mokman_Product_Feature_Specification.md)
-for what each screen/package contains, and
-[`docs/Mokman_Phase_Wise_Development_Plan.md`](docs/Mokman_Phase_Wise_Development_Plan.md)
-for the 8-phase build sequence and exit gates.
+This file is the project's status log — read it first when picking this
+work back up after any interruption, before touching code.
 
-## Stack
+## Architecture
 
-- **Frontend**: Next.js (App Router) + TypeScript + Tailwind — `apps/web`, one
-  app serving the public site and role-gated dashboards via route groups
-  (`(public)`, `(owner)`, `(tenant)`, `(admin)`, `(field)`).
-- **Backend**: FastAPI (Python) — `services/api`.
-- **Database**: PostgreSQL via SQLAlchemy + Alembic migrations.
-- **Jobs**: Celery + Redis.
+- **Frontend**: `apps/web`, Next.js 16 (App Router), pnpm workspace. Styling
+  is **CSS Modules only** — no Tailwind, no inline styles. Shared primitives
+  live in `apps/web/styles/ui.module.css`; everything else is a colocated
+  `.module.css` next to its component/page.
+- **Backend**: `services/api`, FastAPI + SQLAlchemy 2.0 + Alembic, managed
+  via `uv`. One **modular monolith** (deliberate choice — see "Decisions"
+  below), organized as `app/modules/<domain>/{schemas,service,router}.py`.
+- **Auth**: JWT via python-jose, argon2 hashing. Browser never talks to
+  FastAPI directly — Next.js Route Handlers hold the httpOnly session
+  cookie and proxy everything through `apps/web/app/api/backend/[...path]/route.ts`.
+- **Storage**: Cloudflare R2 (S3-compatible), presigned upload/download URLs.
+- **Deployment**: GitHub → Railway (FastAPI, Dockerfile runs
+  `alembic upgrade head` on every deploy) + Vercel (Next.js) → custom
+  domain via GoDaddy DNS.
 
-## Local development
+### Decisions worth knowing before changing anything
 
-Prerequisites: Node.js, pnpm, Python 3.12+, [uv](https://docs.astral.sh/uv/),
-and a Postgres connection string (a free [Neon](https://neon.tech) database
-works well if you don't have Docker/Postgres installed locally).
-
-```
-make migrate     # apply Alembic migrations (needs DATABASE_URL set)
-make dev-api     # FastAPI on http://localhost:8000
-make dev-web     # Next.js on http://localhost:3000
-```
-
-Copy `.env.example` to `.env` in the repo root (used by both `apps/web` and
-`services/api`) and fill in `DATABASE_URL` and `JWT_SECRET` (must be the same
-value in both apps — the web app verifies API-issued JWTs itself).
-
-After migrating, seed the two internally-provisioned demo accounts (Admin and
-Field Staff aren't self-registrable — see below):
-
-```
-cd services/api && uv run python scripts/seed_demo_users.py
-```
-
-## Auth
-
-- **Owners and Tenants** self-register at `/register`.
-- **Admin and Field Staff** are seeded, not self-registered — run
-  `uv run python scripts/seed_demo_users.py` (add `--reset` to rotate an
-  existing deployment's passwords). Passwords are randomly generated and
-  printed once to the console; they are never hardcoded or stored in the repo.
-- Login issues a JWT stored in an httpOnly cookie set by a Next.js Route
-  Handler (`apps/web/app/api/auth/*`) — the browser never talks to the API
-  directly. `apps/web/proxy.ts` gates the `(owner)`, `(tenant)`, `(admin)`,
-  and `(field)` route groups by role.
-
-## Repository layout
-
-```
-apps/web/       Next.js app (public site + Owner/Tenant/Admin/Field surfaces)
-services/api/   FastAPI backend
-packages/       Shared JS packages (ui, config, generated API client)
-docs/           Product spec and phase-wise development plan
-```
+- **Modular monolith, not microservices.** The user asked about
+  microservices once; confirmed it was a "general preference," not a hard
+  requirement, and agreed to stay with the monolith. Don't re-split into
+  services without an explicit new instruction.
+- **Ledger is append-only.** `LedgerEntry` rows are never updated or
+  deleted — corrections are offsetting entries. Don't add UPDATE paths to it.
+  Existing `LedgerEntry.amount` uses `Float` (matching `Lease`/`Inspection`'s
+  existing convention), not `Decimal` — this was a deliberate consistency
+  choice, not an oversight.
+- **Vendor integrations are deferred, one layer at a time**: KYC
+  verification (Phase 1), e-signature (Phase 2 — lease "signing" is just
+  both parties clicking acknowledge, timestamped), payment gateway
+  (Phase 3 — rent payments are manually recorded with method + reference
+  note, not a live Razorpay/PayU integration). Each of these is designed
+  so the real vendor slots in later as an additional path into the same
+  data model, not a rewrite.
+- Every phase went through a written plan (scope explicitly cut down from
+  the full phase-doc scope to a proportionate slice) approved by the user
+  before implementation. If resuming mid-phase, check whether an approved
+  plan file describes the current work before improvising.
 
 ## Status
 
-Phase 1 (Property Foundation) in progress. See the phase-wise development plan
-for what's in scope and the definition of done for each phase.
+### ✅ Phase 1 — Property Foundation (done, live, verified in prod)
+Owner registration/KYC (manual, no third-party verification API), property
+registration + hierarchy, document vault (real R2 storage, presigned
+URLs), owner dashboard. Admin/Field Staff accounts are seeded, not
+self-registered.
+
+### ✅ Phase 2 — Tenant & Lease Management (done, live, verified in prod)
+Tenant registration/profile, lease creation (owner enters tenant's email —
+no invite-email vendor needed), in-app acknowledgment as e-signature
+stand-in, move-in/move-out inspections with checklist/photos via the
+document vault, lease → property status sync (occupied/vacant).
+Deferred: complaint raising, multi-channel notifications (SMS/WhatsApp/
+email/push) — pushed to Phase 4's workflow engine; unit-level leases
+(leases attach to `Property`, not `Unit`).
+
+### ✅ Phase 3 — Rent & Financial Management (done, live, verified in prod for owner+tenant)
+- `RentInvoice`: lazily generated per billing period from lease terms,
+  escalation-aware (`Lease.annual_escalation_percentage` applied per
+  elapsed year). Status recomputed from the ledger on every read — no
+  scheduler/cron needed.
+- `LedgerEntry`: immutable transaction log backing both rent
+  reconciliation and deposit settlement (rent_payment, mokman_fee,
+  deposit_collected/deduction/refund, expense).
+- Rent payments recorded manually (method + reference note); each payment
+  auto-derives an 8% Mokman fee entry (`MOKMAN_FEE_PERCENTAGE` constant in
+  `app/modules/rent/service.py`).
+- Lease activation auto-records `deposit_collected`; a fully signed-off
+  move-out inspection can `settle-deposit`, which validates
+  deduction+refund equals the original deposit before writing the ledger
+  entries.
+- `Expense`: owner-submitted = auto-approved with an immediate ledger
+  entry; admin-submitted = pending until the property owner approves it.
+  This is the **first real Admin Portal screen** (`/admin/expenses`) —
+  everything before this was a placeholder feature list.
+- `GET /finance/statement`: per-property or owner-aggregate monthly
+  rollup (rent collected, expenses, Mokman fee, net payable).
+- Deferred: live payment gateway, PDF/Excel export, full property P&L /
+  budget-vs-actual / portfolio yield reports, late-fee notifications,
+  expense receipt documents.
+
+**Known verification gap (not a functional bug):** the admin-specific
+Phase 3 steps (admin login → submit expense → owner approves) are fully
+verified **locally** but not re-verified against production, because the
+production admin password isn't known to this session — it was randomly
+rotated during the demo-password security fix and shown once in a
+terminal that's no longer available. Local `scripts/seed_demo_users.py
+--reset` only touches the **local** dev database, not production's. To
+close this gap: either get the current production admin credentials from
+the user, or run the reset script against Railway's production container
+(rotates a live credential — confirm with the user first, don't just do it).
+
+### ⬜ Phase 4 — Property Operations (not started)
+Next up per the phase plan: maintenance ticketing/workflow engine,
+property inspections (formalizes the generic `Inspection` model from
+Phase 2), preventive maintenance, vendor operations, utility management.
+This is also where the deferred Phase 2 items (complaints, notifications)
+and Field Staff App v1 land. Per the phase doc, this is the largest phase
+so far — consider whether to split into 4a (Tickets & Inspections) / 4b
+(Vendors & Utilities) when planning it.
+
+## Local development
+
+```powershell
+# Backend (services/api) — uv manages the venv
+uv run alembic upgrade head          # apply migrations to local Postgres
+uv run uvicorn app.main:app --port 8000   # NOT --reload on Windows; see gotcha below
+uv run ruff check .
+uv run mypy app
+
+# Frontend (repo root, pnpm workspace)
+pnpm --filter web dev      # port 3000
+pnpm --filter web lint
+pnpm --filter web typecheck
+pnpm --filter web build
+
+# Seed demo admin/field-staff accounts (local DB only)
+uv run python scripts/seed_demo_users.py --reset
+```
+
+### Environment gotchas (Windows + OneDrive-synced repo)
+
+- **PATH doesn't persist between PowerShell tool calls in this environment
+  session** — every command needs
+  `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")`
+  prefixed (plus appending `...\AppData\Roaming\Python\Python314\Scripts`
+  for `uv` specifically, since it's a pip-installed script, not on the
+  machine/user PATH).
+- **`uv run uvicorn --reload` is unreliable on Windows for this project.**
+  Its multiprocessing reload watcher can orphan child processes that keep
+  the listening socket alive even after the parent exits, so a new
+  `uvicorn --reload` invocation silently binds behind a stale process and
+  serves old code indefinitely. If new routes don't show up in
+  `/openapi.json` after an edit: check `netstat -ano | findstr :8000` and
+  `Get-CimInstance Win32_Process -Filter "Name = 'python.exe'"` for
+  leftover processes, kill everything on that port, then start **without**
+  `--reload` and restart manually after each backend change.
+- **OneDrive file locks** occasionally cause `uv sync`/`pnpm build` to fail
+  with `EPERM`/`Access is denied` (especially deleting `.next/`). Retrying
+  once, or deleting the locked directory first, resolves it.
+- PowerShell `-Path` arguments treat `[id]` (a literal folder name in this
+  Next.js App Router project) as a wildcard character class — `Test-Path`/
+  `Remove-Item` on paths containing `[id]` need `-LiteralPath`, not `-Path`,
+  or they silently no-op instead of erroring.
+
+## Deployment
+
+Push to `main` → Railway redeploys `services/api` (Dockerfile runs
+`alembic upgrade head` automatically before starting Uvicorn) and Vercel
+redeploys `apps/web`. Both deploys are independent and take roughly
+1–3 minutes; poll `https://www.mokman.com/api/backend/openapi.json` for
+the expected new routes before running post-deploy verification — don't
+assume the deploy finished just because `git push` returned.
+
+Standard verification loop after any phase's backend+frontend land: local
+ruff/mypy + pnpm lint/typecheck/build → local Postgres lifecycle test via
+a PowerShell script hitting the API directly → local Playwright browser
+flow → commit, push → poll for new routes in prod → production Playwright
+flow. Playwright itself lives only in the session's scratchpad
+(`node_modules/playwright*`), not as a repo dependency — it's reinstalled
+per session as needed for manual verification, not part of CI.
