@@ -43,10 +43,10 @@ cd services/api && uv run python scripts/seed_demo_users.py
 ## Auth
 
 - **Owners and Tenants** self-register at `/register`.
-- **Admin and Field Staff** are seeded, not self-registered:
-  - `admin@mokman.com` / `ChangeMe123!`
-  - `field@mokman.com` / `ChangeMe123!`
-  (change these before any real deployment)
+- **Admin and Field Staff** are seeded, not self-registered — run
+  `uv run python scripts/seed_demo_users.py` (add `--reset` to rotate an
+  existing deployment's passwords). Passwords are randomly generated and
+  printed once to the console; they are never hardcoded or stored in the repo.
 - Login issues a JWT stored in an httpOnly cookie set by a Next.js Route
   Handler (`apps/web/app/api/auth/*`) — the browser never talks to the API
   directly. `apps/web/proxy.ts` gates the `(owner)`, `(tenant)`, `(admin)`,
