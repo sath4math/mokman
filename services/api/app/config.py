@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 30
 
+    s3_endpoint_url: str = ""
+    s3_bucket: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_region: str = ""
+
     model_config = SettingsConfigDict(env_file="../../.env", extra="ignore")
 
     @field_validator("database_url")

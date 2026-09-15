@@ -1,12 +1,11 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Float, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, TimestampMixin, uuid_pk
+from app.models.base import Base, TimestampMixin, str_enum_column, uuid_pk
 
 
 class PropertyStatus(str, enum.Enum):
@@ -36,7 +35,15 @@ class Property(Base, TimestampMixin):
     postal_code: Mapped[str] = mapped_column(String(20))
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[PropertyStatus] = mapped_column(SAEnum(PropertyStatus, name="property_status"), default=PropertyStatus.VACANT)
+    status: Mapped[PropertyStatus] = mapped_column(
+        str_enum_column(PropertyStatus, "property_status"), default=PropertyStatus.VACANT
+    )
+
+    area_sqft: Mapped[float | None] = mapped_column(Float, nullable=True)
+    num_floors: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    num_units: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amenities: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    furnishing_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
 
 class Building(Base, TimestampMixin):
@@ -70,7 +77,9 @@ class Unit(Base, TimestampMixin):
     floor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("floors.id"), index=True)
     unit_number: Mapped[str] = mapped_column(String(50))
     area_sqft: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[PropertyStatus] = mapped_column(SAEnum(PropertyStatus, name="property_status"), default=PropertyStatus.VACANT)
+    status: Mapped[PropertyStatus] = mapped_column(
+        str_enum_column(PropertyStatus, "property_status"), default=PropertyStatus.VACANT
+    )
 
 
 class Room(Base, TimestampMixin):

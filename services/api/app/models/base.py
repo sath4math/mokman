@@ -1,13 +1,26 @@
+import enum
 import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, func
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def str_enum_column[E: enum.Enum](enum_cls: type[E], name: str) -> SAEnum:
+    """A Postgres ENUM column type that stores the member's .value.
+
+    SQLAlchemy's Enum type stores the Python enum member's .name by default,
+    but our (str, Enum) members' values are what migrations create the
+    Postgres type with — without values_callable, inserts fail with
+    "invalid input value for enum ...: 'MEMBER_NAME'".
+    """
+    return SAEnum(enum_cls, name=name, values_callable=lambda obj: [e.value for e in obj])
 
 
 class TimestampMixin:
