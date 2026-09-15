@@ -1,6 +1,8 @@
 import { LogoutButton } from "@/components/logout-button";
 import type { CurrentUser } from "@/lib/session";
 
+import styles from "./role-dashboard.module.css";
+
 export function RoleDashboard({
   user,
   title,
@@ -11,24 +13,19 @@ export function RoleDashboard({
   features: string[];
 }) {
   return (
-    <main className="flex flex-1 flex-col gap-8 px-6 py-16">
-      <div className="flex items-start justify-between gap-4">
+    <main className={styles.main}>
+      <div className={styles.header}>
         <div>
-          <h1 className="text-2xl font-semibold">
-            Welcome, {user.full_name ?? user.email}
-          </h1>
-          <p className="text-zinc-600 dark:text-zinc-400">{title}</p>
+          <h1 className={styles.title}>Welcome, {user.full_name ?? user.email}</h1>
+          <p className={styles.subtitle}>{title}</p>
         </div>
         <LogoutButton />
       </div>
       <section>
-        <h2 className="mb-3 text-lg font-medium">Available features</h2>
-        <ul className="flex flex-col gap-2">
+        <h2 className={styles.sectionTitle}>Available features</h2>
+        <ul className={styles.list}>
           {features.map((feature) => (
-            <li
-              key={feature}
-              className="rounded border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
-            >
+            <li key={feature} className={styles.listItem}>
               {feature}
             </li>
           ))}

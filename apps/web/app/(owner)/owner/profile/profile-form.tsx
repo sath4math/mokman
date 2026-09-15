@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import type { AuthorizedRepresentative, OwnerProfile, OwnershipType } from "@/lib/types";
+import ui from "@/styles/ui.module.css";
+
+import styles from "./profile.module.css";
 
 const EMPTY_PROFILE: OwnerProfile = {
   pan_number: "",
@@ -24,15 +27,12 @@ const EMPTY_PROFILE: OwnerProfile = {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
+    <label className={ui.field}>
       {label}
       {children}
     </label>
   );
 }
-
-const inputClass =
-  "rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
 
 export function ProfileForm({
   initialProfile,
@@ -100,21 +100,21 @@ export function ProfileForm({
   }
 
   return (
-    <div className="flex flex-col gap-10">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-8">
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-medium">KYC</h2>
+    <div className={styles.formWrapper}>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>KYC</h2>
           <Field label="PAN number">
             <input
-              className={inputClass}
+              className={ui.input}
               value={profile.pan_number ?? ""}
               onChange={(e) => set("pan_number", e.target.value)}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={styles.row2}>
             <Field label="ID proof type">
               <select
-                className={inputClass}
+                className={ui.select}
                 value={profile.id_proof_type ?? "aadhaar"}
                 onChange={(e) => set("id_proof_type", e.target.value)}
               >
@@ -124,7 +124,7 @@ export function ProfileForm({
             </Field>
             <Field label="ID proof number">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.id_proof_number ?? ""}
                 onChange={(e) => set("id_proof_number", e.target.value)}
               />
@@ -132,26 +132,26 @@ export function ProfileForm({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-medium">Bank details</h2>
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Bank details</h2>
           <Field label="Bank name">
             <input
-              className={inputClass}
+              className={ui.input}
               value={profile.bank_name ?? ""}
               onChange={(e) => set("bank_name", e.target.value)}
             />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className={styles.row2}>
             <Field label="Account number">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.bank_account_number ?? ""}
                 onChange={(e) => set("bank_account_number", e.target.value)}
               />
             </Field>
             <Field label="IFSC">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.bank_ifsc ?? ""}
                 onChange={(e) => set("bank_ifsc", e.target.value)}
               />
@@ -159,12 +159,12 @@ export function ProfileForm({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-medium">Ownership</h2>
-          <div className="grid grid-cols-2 gap-4">
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Ownership</h2>
+          <div className={styles.row2}>
             <Field label="Ownership type">
               <select
-                className={inputClass}
+                className={ui.select}
                 value={profile.ownership_type}
                 onChange={(e) => set("ownership_type", e.target.value as OwnershipType)}
               >
@@ -178,7 +178,7 @@ export function ProfileForm({
                   type="number"
                   min={0}
                   max={100}
-                  className={inputClass}
+                  className={ui.input}
                   value={profile.ownership_percentage ?? ""}
                   onChange={(e) =>
                     set("ownership_percentage", e.target.value ? Number(e.target.value) : null)
@@ -189,26 +189,26 @@ export function ProfileForm({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-medium">Nominee</h2>
-          <div className="grid grid-cols-3 gap-4">
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Nominee</h2>
+          <div className={styles.row3}>
             <Field label="Name">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.nominee_name ?? ""}
                 onChange={(e) => set("nominee_name", e.target.value)}
               />
             </Field>
             <Field label="Relationship">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.nominee_relationship ?? ""}
                 onChange={(e) => set("nominee_relationship", e.target.value)}
               />
             </Field>
             <Field label="Phone">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.nominee_phone ?? ""}
                 onChange={(e) => set("nominee_phone", e.target.value)}
               />
@@ -216,19 +216,19 @@ export function ProfileForm({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-medium">Emergency contact</h2>
-          <div className="grid grid-cols-2 gap-4">
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Emergency contact</h2>
+          <div className={styles.row2}>
             <Field label="Name">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.emergency_contact_name ?? ""}
                 onChange={(e) => set("emergency_contact_name", e.target.value)}
               />
             </Field>
             <Field label="Phone">
               <input
-                className={inputClass}
+                className={ui.input}
                 value={profile.emergency_contact_phone ?? ""}
                 onChange={(e) => set("emergency_contact_phone", e.target.value)}
               />
@@ -236,25 +236,18 @@ export function ProfileForm({
           </div>
         </section>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-emerald-600">Saved.</p>}
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-fit rounded bg-zinc-900 px-5 py-2 text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
-        >
+        {error && <p className={ui.errorText}>{error}</p>}
+        {saved && <p className={ui.successText}>Saved.</p>}
+        <button type="submit" disabled={saving} className={`${ui.btnPrimary} ${styles.submitButton}`}>
           {saving ? "Saving…" : "Save profile"}
         </button>
       </form>
 
-      <section className="flex flex-col gap-4 border-t border-zinc-200 pt-8 dark:border-zinc-800">
-        <h2 className="text-lg font-medium">Authorized representatives</h2>
-        <ul className="flex flex-col gap-2">
+      <section className={styles.repSection}>
+        <h2 className={styles.sectionTitle}>Authorized representatives</h2>
+        <ul className={styles.repList}>
           {representatives.map((rep) => (
-            <li
-              key={rep.id}
-              className="flex items-center justify-between rounded border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
-            >
+            <li key={rep.id} className={styles.repItem}>
               <span>
                 {rep.name}
                 {rep.relationship ? ` (${rep.relationship})` : ""} — {rep.phone ?? rep.email ?? "no contact"}
@@ -262,37 +255,33 @@ export function ProfileForm({
               <button
                 type="button"
                 onClick={() => handleRemoveRepresentative(rep.id)}
-                className="text-red-600 underline"
+                className={ui.linkDanger}
               >
                 Remove
               </button>
             </li>
           ))}
         </ul>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className={styles.repForm}>
           <input
-            className={inputClass}
+            className={ui.input}
             placeholder="Name"
             value={repDraft.name}
             onChange={(e) => setRepDraft((prev) => ({ ...prev, name: e.target.value }))}
           />
           <input
-            className={inputClass}
+            className={ui.input}
             placeholder="Relationship"
             value={repDraft.relationship}
             onChange={(e) => setRepDraft((prev) => ({ ...prev, relationship: e.target.value }))}
           />
           <input
-            className={inputClass}
+            className={ui.input}
             placeholder="Phone"
             value={repDraft.phone}
             onChange={(e) => setRepDraft((prev) => ({ ...prev, phone: e.target.value }))}
           />
-          <button
-            type="button"
-            onClick={handleAddRepresentative}
-            className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-          >
+          <button type="button" onClick={handleAddRepresentative} className={ui.btnSecondary}>
             Add
           </button>
         </div>

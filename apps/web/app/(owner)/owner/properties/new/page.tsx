@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
-const inputClass = "rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900";
+import ui from "@/styles/ui.module.css";
+
+import styles from "./new-property.module.css";
 
 export default function NewPropertyPage() {
   const router = useRouter();
@@ -65,13 +67,13 @@ export default function NewPropertyPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Add Property</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
+    <main className={styles.main}>
+      <h1 className={styles.title}>Add Property</h1>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <label className={ui.field}>
           Category
           <select
-            className={inputClass}
+            className={ui.select}
             value={form.category}
             onChange={(e) => set("category", e.target.value)}
           >
@@ -81,95 +83,95 @@ export default function NewPropertyPage() {
             <option value="land">Land</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Property name
           <input
             required
-            className={inputClass}
+            className={ui.input}
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Address
           <input
             required
-            className={inputClass}
+            className={ui.input}
             value={form.address_line}
             onChange={(e) => set("address_line", e.target.value)}
           />
         </label>
-        <div className="grid grid-cols-3 gap-4">
-          <label className="flex flex-col gap-1 text-sm">
+        <div className={styles.row3}>
+          <label className={ui.field}>
             City
             <input
               required
-              className={inputClass}
+              className={ui.input}
               value={form.city}
               onChange={(e) => set("city", e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className={ui.field}>
             State
             <input
               required
-              className={inputClass}
+              className={ui.input}
               value={form.state}
               onChange={(e) => set("state", e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className={ui.field}>
             Postal code
             <input
               required
-              className={inputClass}
+              className={ui.input}
               value={form.postal_code}
               onChange={(e) => set("postal_code", e.target.value)}
             />
           </label>
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <label className="flex flex-col gap-1 text-sm">
+        <div className={styles.row3}>
+          <label className={ui.field}>
             Area (sqft)
             <input
               type="number"
-              className={inputClass}
+              className={ui.input}
               value={form.area_sqft}
               onChange={(e) => set("area_sqft", e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className={ui.field}>
             Floors
             <input
               type="number"
-              className={inputClass}
+              className={ui.input}
               value={form.num_floors}
               onChange={(e) => set("num_floors", e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className={ui.field}>
             Units
             <input
               type="number"
-              className={inputClass}
+              className={ui.input}
               value={form.num_units}
               onChange={(e) => set("num_units", e.target.value)}
             />
           </label>
         </div>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Amenities (comma-separated)
           <input
-            className={inputClass}
+            className={ui.input}
             placeholder="parking, lift, gym"
             value={form.amenities}
             onChange={(e) => set("amenities", e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Furnishing
           <select
-            className={inputClass}
+            className={ui.select}
             value={form.furnishing_status}
             onChange={(e) => set("furnishing_status", e.target.value)}
           >
@@ -178,12 +180,8 @@ export default function NewPropertyPage() {
             <option value="full">Fully furnished</option>
           </select>
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-fit rounded bg-zinc-900 px-5 py-2 text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
-        >
+        {error && <p className={ui.errorText}>{error}</p>}
+        <button type="submit" disabled={submitting} className={`${ui.btnPrimary} ${styles.submitButton}`}>
           {submitting ? "Creating…" : "Create property"}
         </button>
       </form>

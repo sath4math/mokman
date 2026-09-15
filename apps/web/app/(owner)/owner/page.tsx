@@ -5,6 +5,9 @@ import { LogoutButton } from "@/components/logout-button";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
 import type { OwnerProfile, Property } from "@/lib/types";
+import ui from "@/styles/ui.module.css";
+
+import styles from "./owner-dashboard.module.css";
 
 export default async function OwnerDashboardPage() {
   const user = await getCurrentUser();
@@ -16,48 +19,42 @@ export default async function OwnerDashboardPage() {
   ]);
 
   return (
-    <main className="flex flex-1 flex-col gap-8 px-6 py-16">
-      <div className="flex items-start justify-between gap-4">
+    <main className={styles.main}>
+      <div className={styles.header}>
         <div>
-          <h1 className="text-2xl font-semibold">Welcome, {user.full_name ?? user.email}</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">Owner dashboard</p>
+          <h1 className={styles.headerTitle}>Welcome, {user.full_name ?? user.email}</h1>
+          <p className={styles.headerSubtitle}>Owner dashboard</p>
         </div>
         <LogoutButton />
       </div>
 
-      <section className="flex items-center justify-between rounded border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <p className="text-sm">
-          KYC status: <span className="font-medium">{profile?.kyc_status ?? "not started"}</span>
+      <section className={styles.kycBanner}>
+        <p>
+          KYC status: <strong>{profile?.kyc_status ?? "not started"}</strong>
         </p>
-        <Link href="/owner/profile" className="text-sm underline">
+        <Link href="/owner/profile" className={ui.link}>
           {profile ? "Edit profile" : "Complete your profile"}
         </Link>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium">Your properties</h2>
-          <Link
-            href="/owner/properties/new"
-            className="rounded bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-50 dark:text-zinc-900"
-          >
+      <section className={styles.propertiesSection}>
+        <div className={styles.propertiesHeader}>
+          <h2 className={styles.propertiesHeading}>Your properties</h2>
+          <Link href="/owner/properties/new" className={`${ui.btnPrimary} ${ui.btnSmall}`}>
             Add Property
           </Link>
         </div>
 
         {properties && properties.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ul className={styles.propertyGrid}>
             {properties.map((property) => (
               <li key={property.id}>
-                <Link
-                  href={`/owner/properties/${property.id}`}
-                  className="block rounded border border-zinc-200 px-4 py-3 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{property.name}</span>
-                    <span className="text-xs uppercase text-zinc-500">{property.status}</span>
+                <Link href={`/owner/properties/${property.id}`} className={styles.propertyCard}>
+                  <div className={styles.propertyTop}>
+                    <span className={styles.propertyName}>{property.name}</span>
+                    <span className={styles.propertyStatus}>{property.status}</span>
                   </div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  <p className={styles.propertyAddress}>
                     {property.address_line}, {property.city}
                   </p>
                 </Link>
@@ -65,9 +62,7 @@ export default async function OwnerDashboardPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            No properties yet — add your first one.
-          </p>
+          <p className={ui.mutedText}>No properties yet — add your first one.</p>
         )}
       </section>
     </main>

@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import type { AuthorizedRepresentative, OwnerProfile } from "@/lib/types";
 
 import { ProfileForm } from "./profile-form";
+import styles from "./profile.module.css";
 
 export default async function OwnerProfilePage() {
   const user = await getCurrentUser();
@@ -16,8 +17,8 @@ export default async function OwnerProfilePage() {
   ]);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Owner Profile</h1>
+    <main className={styles.main}>
+      <h1 className={styles.title}>Owner Profile</h1>
       <ProfileForm initialProfile={profile} initialRepresentatives={representatives ?? []} />
     </main>
   );

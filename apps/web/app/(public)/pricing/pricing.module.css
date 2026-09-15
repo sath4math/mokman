@@ -1,0 +1,126 @@
+.main {
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  width: 100%;
+  max-width: 64rem;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-6);
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.addOnsTitle {
+  margin-bottom: var(--space-4);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.addOnsSubtitle {
+  margin-bottom: var(--space-3);
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.addOnsGrid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+@media (min-width: 640px) {
+  .addOnsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.addOnItem {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+}
+
+/* Table */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.tableTitle {
+  margin-bottom: var(--space-4);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.table {
+  width: 100%;
+  min-width: 40rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.th {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+
+.tierName {
+  font-weight: 600;
+}
+
+.tierPositioning {
+  margin-top: var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-muted);
+}
+
+.row {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rowLabel {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.cell {
+  padding: var(--space-2) var(--space-3);
+}
+
+.cellIncluded {
+  composes: cell;
+  color: var(--color-success);
+}
+
+.cellAddon {
+  composes: cell;
+  color: #b45309;
+}
+
+.cellNone {
+  composes: cell;
+  color: var(--color-text-faint);
+}
+
+.billingLabel {
+  padding: var(--space-3);
+  font-weight: 500;
+}
+
+.billingValue {
+  padding: var(--space-3);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}

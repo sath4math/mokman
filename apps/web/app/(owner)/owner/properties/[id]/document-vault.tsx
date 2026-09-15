@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 
 import type { DocumentRecord } from "@/lib/types";
+import ui from "@/styles/ui.module.css";
+
+import styles from "./document-vault.module.css";
 
 const DOCUMENT_TYPES = ["photo", "floor_plan", "ownership_deed", "tax_receipt", "other"];
 
@@ -91,43 +94,38 @@ export function DocumentVault({
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-medium">Documents</h2>
+    <section className={styles.section}>
+      <h2 className={styles.heading}>Documents</h2>
 
-      <ul className="flex flex-col gap-2">
+      <ul className={styles.list}>
         {documents.map((doc) => (
-          <li
-            key={doc.id}
-            className="flex items-center justify-between rounded border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
-          >
+          <li key={doc.id} className={styles.item}>
             <span>
               {doc.document_type}
               {doc.expiry_date ? ` — expires ${doc.expiry_date}` : ""}
             </span>
-            <span className="flex gap-3">
-              <button type="button" onClick={() => handleDownload(doc.id)} className="underline">
+            <span className={styles.itemActions}>
+              <button type="button" onClick={() => handleDownload(doc.id)} className={ui.link}>
                 Download
               </button>
               <button
                 type="button"
                 onClick={() => handleDelete(doc.id)}
-                className="text-red-600 underline"
+                className={ui.linkDanger}
               >
                 Delete
               </button>
             </span>
           </li>
         ))}
-        {documents.length === 0 && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No documents uploaded yet.</p>
-        )}
+        {documents.length === 0 && <p className={ui.mutedText}>No documents uploaded yet.</p>}
       </ul>
 
-      <div className="flex flex-wrap items-end gap-3 rounded border border-zinc-200 p-4 dark:border-zinc-800">
-        <label className="flex flex-col gap-1 text-sm">
+      <div className={styles.uploadRow}>
+        <label className={ui.field}>
           Type
           <select
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.select}
             value={documentType}
             onChange={(e) => setDocumentType(e.target.value)}
           >
@@ -138,29 +136,24 @@ export function DocumentVault({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Expiry date (optional)
           <input
             type="date"
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.input}
             value={expiryDate}
             onChange={(e) => setExpiryDate(e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           File
           <input ref={fileInputRef} type="file" />
         </label>
-        <button
-          type="button"
-          onClick={handleUpload}
-          disabled={uploading}
-          className="rounded bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
-        >
+        <button type="button" onClick={handleUpload} disabled={uploading} className={ui.btnPrimary}>
           {uploading ? "Uploading…" : "Upload"}
         </button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className={ui.errorText}>{error}</p>}
     </section>
   );
 }

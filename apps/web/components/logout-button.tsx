@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import styles from "./logout-button.module.css";
+
 export function LogoutButton() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -19,7 +21,7 @@ export function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={loading}
-      className="text-sm text-zinc-600 underline disabled:opacity-50 dark:text-zinc-400"
+      className={styles.button}
     >
       {loading ? "Logging out…" : "Log out"}
     </button>

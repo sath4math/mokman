@@ -1,0 +1,126 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 90%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.headerInner {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: var(--container-2xl);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.nav {
+  display: none;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+@media (min-width: 768px) {
+  .nav {
+    display: flex;
+  }
+}
+
+.navLink:hover {
+  color: var(--color-primary);
+}
+
+.utilityRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.loginLink {
+  display: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.loginLink:hover {
+  text-decoration: underline;
+}
+
+@media (min-width: 640px) {
+  .loginLink {
+    display: inline;
+  }
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.footer {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+}
+
+.footerGrid {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: var(--container-2xl);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-6) var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .footerGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.footerColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.footerHeading {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.footerLink {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.footerLink:hover {
+  color: var(--color-primary);
+}
+
+.footerBottom {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: var(--container-2xl);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-6);
+  font-size: 0.875rem;
+  color: var(--color-text-faint);
+}

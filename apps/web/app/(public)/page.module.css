@@ -1,0 +1,280 @@
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+/* Shared section heading */
+.sectionHeading {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 42rem;
+  text-align: center;
+}
+
+.eyebrow {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary);
+}
+
+.sectionTitleText {
+  margin-top: var(--space-2);
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sectionBody {
+  margin-top: var(--space-3);
+  color: var(--color-text-muted);
+}
+
+/* Hero */
+.heroSection {
+  background: linear-gradient(to bottom, var(--color-primary-soft), var(--color-bg));
+  padding: var(--space-8) var(--space-6) 6rem;
+}
+
+.heroInner {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 48rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  text-align: center;
+}
+
+.heroTitle {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 640px) {
+  .heroTitle {
+    font-size: 3rem;
+  }
+}
+
+.heroHighlight {
+  color: var(--color-primary);
+}
+
+.heroSubtitle {
+  max-width: 36rem;
+  font-size: 1.125rem;
+  color: var(--color-text-muted);
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.heroTrust {
+  font-size: 0.875rem;
+  color: var(--color-text-faint);
+}
+
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Generic section rhythm */
+.section {
+  padding: var(--space-8) var(--space-6) 5rem;
+}
+
+.sectionMuted {
+  composes: section;
+  background: var(--color-bg-muted);
+}
+
+/* Benefit / service grids */
+.grid4 {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: var(--space-8);
+  max-width: 64rem;
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+
+@media (min-width: 640px) {
+  .grid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.grid3 {
+  composes: grid4;
+}
+
+@media (min-width: 1024px) {
+  .grid3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.cardOnSurface {
+  composes: card;
+  background: var(--color-surface);
+}
+
+.cardIcon {
+  color: var(--color-primary);
+}
+
+.cardTitle {
+  font-weight: 600;
+}
+
+.cardBody {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.linkRow {
+  margin-top: var(--space-8);
+  display: flex;
+  justify-content: center;
+  gap: var(--space-6);
+  font-size: 0.875rem;
+}
+
+.linkRowSingle {
+  composes: linkRow;
+}
+
+/* How it works */
+.stepsGrid {
+  composes: grid4;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stepBadge {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  font-weight: 600;
+}
+
+/* Services */
+.serviceCard {
+  composes: cardOnSurface;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.serviceIcon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+/* Packages preview */
+.pillRow {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: var(--space-6);
+  display: flex;
+  max-width: 48rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.pill {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.ctaCenter {
+  margin-top: var(--space-8);
+  display: flex;
+  justify-content: center;
+}
+
+/* Trust list */
+.trustList {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: var(--space-8);
+  display: flex;
+  max-width: 42rem;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.trustItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.875rem;
+}
+
+.trustDot {
+  height: 0.375rem;
+  width: 0.375rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+}
+
+/* Final CTA */
+.finalCta {
+  padding: var(--space-8) var(--space-6) 5rem;
+  text-align: center;
+}
+
+.finalCtaTitle {
+  font-size: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.finalCtaBody {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: var(--space-3);
+  max-width: 36rem;
+  color: var(--color-text-muted);
+}

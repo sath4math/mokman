@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
+import ui from "@/styles/ui.module.css";
+
+import formStyles from "../auth-form.module.css";
+
 const ROLE_HOME: Record<string, string> = {
   owner: "/owner",
   tenant: "/tenant",
@@ -41,21 +45,21 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-6 py-24">
-      <h1 className="text-2xl font-semibold">Create an account</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm">
+    <main className={formStyles.main}>
+      <h1 className={formStyles.title}>Create an account</h1>
+      <form onSubmit={handleSubmit} className={formStyles.form}>
+        <label className={ui.field}>
           I am a
           <select
             value={role}
             onChange={(event) => setRole(event.target.value as "owner" | "tenant")}
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.select}
           >
             <option value="owner">Property Owner</option>
             <option value="tenant">Tenant</option>
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Full name
           <input
             type="text"
@@ -63,10 +67,10 @@ export default function RegisterPage() {
             autoComplete="name"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.input}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Email
           <input
             type="email"
@@ -74,10 +78,10 @@ export default function RegisterPage() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.input}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className={ui.field}>
           Password
           <input
             type="password"
@@ -86,21 +90,21 @@ export default function RegisterPage() {
             autoComplete="new-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className={ui.input}
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className={ui.errorText}>{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="rounded bg-zinc-900 px-4 py-2 text-white disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900"
+          className={`${ui.btnPrimary} ${formStyles.submitButton}`}
         >
           {submitting ? "Creating account…" : "Create account"}
         </button>
       </form>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className={formStyles.footer}>
         Already have an account?{" "}
-        <Link href="/login" className="underline">
+        <Link href="/login" className={ui.linkPrimary}>
           Log in
         </Link>
       </p>

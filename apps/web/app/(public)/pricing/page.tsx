@@ -1,30 +1,24 @@
 import { addOns, ownerPackages, tenantPackages } from "./data";
 import { PackageTableView } from "./package-table";
+import styles from "./pricing.module.css";
 
 export default function PricingPage() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-16 px-6 py-16">
+    <main className={styles.main}>
       <div>
-        <h1 className="text-3xl font-semibold">Pricing</h1>
-        <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-          Owner and Tenant packages, side by side.
-        </p>
+        <h1 className={styles.title}>Pricing</h1>
+        <p className={styles.subtitle}>Owner and Tenant packages, side by side.</p>
       </div>
 
       <PackageTableView table={ownerPackages} title="Owner Packages" />
       <PackageTableView table={tenantPackages} title="Tenant Packages" />
 
       <div>
-        <h2 className="mb-4 text-xl font-semibold">Standalone Service Add-Ons</h2>
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-          Available regardless of package.
-        </p>
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <h2 className={styles.addOnsTitle}>Standalone Service Add-Ons</h2>
+        <p className={styles.addOnsSubtitle}>Available regardless of package.</p>
+        <ul className={styles.addOnsGrid}>
           {addOns.map((addOn) => (
-            <li
-              key={addOn}
-              className="rounded border border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800"
-            >
+            <li key={addOn} className={styles.addOnItem}>
               {addOn}
             </li>
           ))}
