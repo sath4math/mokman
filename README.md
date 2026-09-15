@@ -100,14 +100,40 @@ close this gap: either get the current production admin credentials from
 the user, or run the reset script against Railway's production container
 (rotates a live credential — confirm with the user first, don't just do it).
 
-### ⬜ Phase 4 — Property Operations (not started)
-Next up per the phase plan: maintenance ticketing/workflow engine,
-property inspections (formalizes the generic `Inspection` model from
-Phase 2), preventive maintenance, vendor operations, utility management.
-This is also where the deferred Phase 2 items (complaints, notifications)
-and Field Staff App v1 land. Per the phase doc, this is the largest phase
-so far — consider whether to split into 4a (Tickets & Inspections) / 4b
-(Vendors & Utilities) when planning it.
+### ✅ Phase 4a — Maintenance Ticketing (done, live, verified in prod for owner+tenant)
+Phase 4 ("Property Operations") is explicitly the doc's largest phase, so
+it's split: this pass is ticketing only.
+- `MaintenanceTicket`: states simplified to
+  open → assigned → in_progress → resolved → closed (+ reopen from
+  closed) — not the doc's full Complaint→Estimate→Approval→Invoice
+  chain. Cost tracking reuses Phase 3's `Expense`/ledger rather than a
+  parallel pipeline.
+- Raised by tenant/owner/admin; assigned by owner/admin to a
+  `field_staff` account (internal-only this pass, no vendor model);
+  started/resolved by the assignee or owner/admin; closed by
+  owner/admin; reopened by owner/raiser/admin.
+- Evidence photos via the document vault (`owner_type=ticket`, same
+  extension pattern as lease/inspection in Phase 2).
+- `app/modules/maintenance/service.py` reuses
+  `inspections.service.verify_property_access` for "owner or
+  tenant-with-a-lease" checks rather than re-deriving it a third time.
+- `properties` `GET /{id}` now also allows a tenant with a lease on
+  that property (was owner-only) — needed for the tenant ticket form's
+  property picker, and generally correct.
+- `components/ticket-detail.tsx` is shared across all four roles
+  (owner/tenant/field_staff/admin) via a `viewerRole` prop, same shape
+  as `lease-detail.tsx`. Field Staff's `/field` page stopped being a
+  placeholder and is now a real "My Jobs" list. Admin's second real
+  screen (`/admin/tickets`) after Phase 3's expenses page.
+- Deferred to **Phase 4b**: vendor operations (registration/KYC/rate
+  cards/invoicing), preventive maintenance (asset service calendars),
+  utility management, society/government coordination, SLA automation
+  (needs a real scheduler, not proportionate yet), and the Phase 2
+  `Inspection` model's "formalization" (ticket-triggered/scheduled
+  inspection types) — the ticket's own document vault already covers
+  this pass's "closed with evidence" need.
+- Same known verification gap as Phase 3: field-staff/admin production
+  login isn't re-verified here either (owner+tenant flows are).
 
 ## Local development
 
@@ -152,6 +178,13 @@ uv run python scripts/seed_demo_users.py --reset
   Next.js App Router project) as a wildcard character class — `Test-Path`/
   `Remove-Item` on paths containing `[id]` need `-LiteralPath`, not `-Path`,
   or they silently no-op instead of erroring.
+- **Long `git commit -m @'...'@` here-strings with markdown-style bullets
+  (`-`) or arrows (`->`) can get mis-split by PowerShell's native-command
+  argument passing**, producing `error: pathspec 'or' did not match any
+  file(s)`-style failures with no useful indication of the real cause.
+  Write the message to a file (e.g. in the scratchpad) and use
+  `git commit -F <file>` instead — it's reliable regardless of message
+  content.
 
 ## Deployment
 
