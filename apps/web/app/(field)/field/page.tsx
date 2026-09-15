@@ -1,10 +1,12 @@
-export default function FieldStaffHomePage() {
-  return (
-    <main className="flex flex-1 flex-col gap-2 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Field Staff</h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Scaffolded for Phase 4 (Property Operations).
-      </p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+import { RoleDashboard } from "@/components/role-dashboard";
+import { getCurrentUser } from "@/lib/current-user";
+import { ROLE_FEATURES } from "@/lib/role-features";
+
+export default async function FieldStaffHomePage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <RoleDashboard user={user} title="Field Staff" features={ROLE_FEATURES.field_staff} />;
 }

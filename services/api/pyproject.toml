@@ -9,7 +9,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.14",
     "psycopg[binary]>=3.2",
-    "pydantic>=2.9",
+    "pydantic[email]>=2.9",
     "pydantic-settings>=2.6",
     "python-jose[cryptography]>=3.3",
     "passlib[argon2]>=1.7",
@@ -28,6 +28,11 @@ dev = [
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# B008: FastAPI's Depends() dependency-injection pattern requires calls in
+# argument defaults — this is idiomatic, not a bug.
+extend-ignore = ["B008"]
 
 [tool.mypy]
 python_version = "3.12"

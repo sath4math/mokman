@@ -1,11 +1,12 @@
-export default function OwnerDashboardPage() {
-  return (
-    <main className="flex flex-1 flex-col gap-2 px-6 py-16">
-      <h1 className="text-2xl font-semibold">Owner Dashboard</h1>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Phase 1 in progress: registration, KYC, property registration, and
-        the property dashboard land here.
-      </p>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+import { RoleDashboard } from "@/components/role-dashboard";
+import { getCurrentUser } from "@/lib/current-user";
+import { ROLE_FEATURES } from "@/lib/role-features";
+
+export default async function OwnerDashboardPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return <RoleDashboard user={user} title="Owner dashboard" features={ROLE_FEATURES.owner} />;
 }
