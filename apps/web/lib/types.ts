@@ -55,3 +55,53 @@ export interface DocumentRecord {
   expiry_date: string | null;
   ocr_status: string;
 }
+
+export type TenantVerificationStatus = "pending" | "verified" | "rejected";
+
+export interface TenantProfile {
+  id_proof_type: string | null;
+  id_proof_number: string | null;
+  occupants_count: number | null;
+  vehicles: string[] | null;
+  pets: string[] | null;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  verification_status: TenantVerificationStatus;
+}
+
+export type LeaseStatus = "draft" | "pending_acknowledgment" | "active" | "terminated" | "expired";
+
+export interface Lease {
+  id: string;
+  property_id: string;
+  tenant_id: string;
+  start_date: string;
+  end_date: string;
+  monthly_rent: number;
+  security_deposit: number;
+  lock_in_period_months: number | null;
+  notice_period_days: number | null;
+  annual_escalation_percentage: number | null;
+  responsibilities: string | null;
+  status: LeaseStatus;
+  owner_acknowledged_at: string | null;
+  tenant_acknowledged_at: string | null;
+  previous_lease_id: string | null;
+}
+
+export type InspectionType = "move_in" | "move_out";
+
+export interface Inspection {
+  id: string;
+  property_id: string;
+  lease_id: string | null;
+  inspection_type: InspectionType;
+  conducted_by: string;
+  checklist: Record<string, string> | null;
+  notes: string | null;
+  meter_readings: Record<string, string> | null;
+  owner_signed_off_at: string | null;
+  tenant_signed_off_at: string | null;
+  deposit_deduction: number | null;
+  deposit_refund: number | null;
+}

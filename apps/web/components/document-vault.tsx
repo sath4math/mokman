@@ -7,17 +7,21 @@ import ui from "@/styles/ui.module.css";
 
 import styles from "./document-vault.module.css";
 
-const DOCUMENT_TYPES = ["photo", "floor_plan", "ownership_deed", "tax_receipt", "other"];
+const DEFAULT_DOCUMENT_TYPES = ["photo", "floor_plan", "ownership_deed", "tax_receipt", "other"];
 
 export function DocumentVault({
-  propertyId,
+  ownerType,
+  ownerId,
   initialDocuments,
+  documentTypes = DEFAULT_DOCUMENT_TYPES,
 }: {
-  propertyId: string;
+  ownerType: string;
+  ownerId: string;
   initialDocuments: DocumentRecord[];
+  documentTypes?: string[];
 }) {
   const [documents, setDocuments] = useState(initialDocuments);
-  const [documentType, setDocumentType] = useState(DOCUMENT_TYPES[0]);
+  const [documentType, setDocumentType] = useState(documentTypes[0]);
   const [expiryDate, setExpiryDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +37,8 @@ export function DocumentVault({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          owner_type: "property",
-          owner_id: propertyId,
+          owner_type: ownerType,
+          owner_id: ownerId,
           filename: file.name,
           content_type: file.type || "application/octet-stream",
         }),
@@ -59,8 +63,8 @@ export function DocumentVault({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          owner_type: "property",
-          owner_id: propertyId,
+          owner_type: ownerType,
+          owner_id: ownerId,
           document_type: documentType,
           s3_key,
           expiry_date: expiryDate || null,
@@ -108,11 +112,7 @@ export function DocumentVault({
               <button type="button" onClick={() => handleDownload(doc.id)} className={ui.link}>
                 Download
               </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(doc.id)}
-                className={ui.linkDanger}
-              >
+              <button type="button" onClick={() => handleDelete(doc.id)} className={ui.linkDanger}>
                 Delete
               </button>
             </span>
@@ -129,7 +129,7 @@ export function DocumentVault({
             value={documentType}
             onChange={(e) => setDocumentType(e.target.value)}
           >
-            {DOCUMENT_TYPES.map((type) => (
+            {documentTypes.map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>

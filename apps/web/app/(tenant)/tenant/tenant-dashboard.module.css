@@ -1,0 +1,72 @@
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-6);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.headerTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.headerSubtitle {
+  color: var(--color-text-muted);
+}
+
+.profileBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.875rem;
+}
+
+.leaseSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.leaseHeading {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.leaseCard {
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.leaseCard:hover {
+  border-color: var(--color-text-faint);
+}
+
+.leaseTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.leaseStatus {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-faint);
+}
+
+.leaseRent {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}

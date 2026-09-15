@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { DocumentRecord, Property } from "@/lib/types";
+import type { DocumentRecord, Lease, Property } from "@/lib/types";
+import ui from "@/styles/ui.module.css";
 
-import { DocumentVault } from "./document-vault";
 import styles from "./property-detail.module.css";
 
 export default async function PropertyDetailPage({
@@ -16,12 +18,17 @@ export default async function PropertyDetailPage({
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const [property, documents] = await Promise.all([
+  const [property, documents, leases] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
+    backendFetch<Lease[]>("/leases"),
   ]);
 
   if (!property) notFound();
+
+  const propertyLease = leases?.find(
+    (lease) => lease.property_id === id && lease.status !== "terminated" && lease.status !== "expired",
+  );
 
   return (
     <main className={styles.main}>
@@ -62,7 +69,26 @@ export default async function PropertyDetailPage({
         </div>
       </section>
 
-      <DocumentVault propertyId={property.id} initialDocuments={documents ?? []} />
+      <section className={styles.leaseSection}>
+        <h2 className={styles.leaseHeading}>Tenancy</h2>
+        {propertyLease ? (
+          <Link href={`/owner/leases/${propertyLease.id}`} className={ui.card}>
+            <div className={ui.flexBetween}>
+              <span>Lease status: {propertyLease.status}</span>
+              <span className={ui.link}>View lease →</span>
+            </div>
+          </Link>
+        ) : (
+          <div className={ui.flexBetween}>
+            <p className={ui.mutedText}>No active lease on this property.</p>
+            <Link href={`/owner/leases/new?property_id=${property.id}`} className={`${ui.btnPrimary} ${ui.btnSmall}`}>
+              Create Lease
+            </Link>
+          </div>
+        )}
+      </section>
+
+      <DocumentVault ownerType="property" ownerId={property.id} initialDocuments={documents ?? []} />
     </main>
   );
 }
