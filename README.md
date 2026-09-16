@@ -612,7 +612,7 @@ spec'd as a Complete-tier feature).
   in `openapi.json`) — route-existence verification only, same gap as
   every phase since 4b.
 
-### 🧱 Phase 6b — Labour-Service Eligibility Engine (implemented, verified locally — not yet deployed)
+### 🧱 Phase 6b — Labour-Service Eligibility Engine (deployed; owner+tenant flows not yet re-verified in prod)
 6a added `OwnerProfile.package` as inert data with zero enforcement
 anywhere. This slice builds the thing Phase 6's own doc calls "the hard
 part of this phase": a rules engine determining whether a job is
@@ -668,6 +668,67 @@ hardcoded conditionals"* per the doc's own technical guidance.
   in a category with no matching rule at all assigns exactly as every
   prior phase, unchanged. Plus local `ruff`/`mypy`/`pnpm lint`/
   `typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`eligibility-rules`/`EligibilityOutcome`/`eligibility_outcome` present
+  in `openapi.json`, `/admin/eligibility-rules` resolving) — route-
+  existence verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 6c — Fair-Use Frequency/Value Limits (implemented, verified locally — not yet deployed)
+6b explicitly deferred "fair-use frequency/value thresholds" as its own
+slice. Phase 6's exit gate calls for "flagging anything that breaches
+fair-use limits for owner approval" — this slice delivers exactly that.
+Remaining Phase 6 scope (material/time tracking against entitlements,
+full workforce management — technician KYC/shifts/attendance/leave/
+training) is confirmed out of scope here; the user chose the narrowest
+of three offered options specifically because workforce management
+alone is doc-sized like Phase 5 and material tracking is a genuinely
+new domain, both better as separate later slices.
+- **Piggybacks directly on 6b's existing machinery rather than adding
+  new tables or a new outcome/exception type.** A limit breach is just
+  another reason a ticket needs the diagnose→estimate→approve gate
+  before assignment (reuses 6b's `EscalationApprovalRequiredError`) and,
+  for value breaches, a reason 5a's owner-self-estimate auto-approve
+  doesn't fire.
+- `ServiceEligibilityRule` gains three independent, optional columns:
+  `max_occurrences`/`period_days` (a frequency limit — "no more than N
+  of this category per owner within this many days") and `max_value` (a
+  per-job value ceiling). Every rule from 6b has all three `null`, so
+  existing rules are completely unaffected — same "optional" principle
+  as every gate since 5a.
+- `MaintenanceTicket` gains `fair_use_breached: bool`, independent of
+  `eligibility_outcome` — a rule's configured outcome (e.g. `included`)
+  and "this specific ticket exceeded the owner's entitlement" are
+  separate facts. Set at `create_ticket` time via a plain aggregate
+  count query against existing tickets (same shape as the existing
+  repeat-failure query, no new tracking table — consistent with 5c's
+  "reporting = queries against existing tables" precedent) for frequency
+  breaches, and at `estimate_ticket` time for value breaches (cost isn't
+  known until then).
+- `estimate_ticket`'s owner-auto-approve condition changed from
+  `is_owner_of_property` to `is_owner_of_property and not
+  ticket.fair_use_breached` — a value breach always lands in `ESTIMATED`
+  requiring an explicit `approve` call, even from the property owner,
+  since it's no longer a routine self-quote within their plan's
+  entitlement. Verified this doesn't regress the un-breached case (an
+  under-cap estimate still auto-approves exactly as 5a left it).
+- `assign_ticket`'s existing ESCALATE-only guard broadened to
+  `eligibility_outcome == ESCALATE or fair_use_breached` — same
+  exception, no new one.
+- No new endpoints: 6b's existing eligibility-rule CRUD already passes
+  request bodies through generically, so the three new optional fields
+  flow through untouched. Admin eligibility-rules screen gained three
+  numeric inputs; `ticket-detail.tsx` gained a second danger badge
+  ("Fair-use limit exceeded") shown alongside, not replacing, the
+  existing SLA/escalate badges.
+- **Verified against local Postgres end-to-end**: a rule with
+  `max_occurrences=1`/`period_days=30` lets the first ticket in that
+  category assign normally, flags the second as breached and blocks
+  `/assign` with 409 until diagnose→estimate→approve; a rule with
+  `max_value=200` leaves an owner's over-cap self-estimate in
+  `estimated` (not auto-approved) until an explicit `approve`, while an
+  under-cap estimate still auto-approves; a ticket with no matching rule
+  at all is completely unaffected. Plus local `ruff`/`mypy`/
+  `pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
 
 ## Local development
