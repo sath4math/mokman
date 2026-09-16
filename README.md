@@ -734,7 +734,7 @@ new domain, both better as separate later slices.
   present in `openapi.json`, `/admin/eligibility-rules` resolving) —
   route-existence verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 6d — Material Usage Tracking (implemented, verified locally — not yet deployed)
+### 🧱 Phase 6d — Material Usage Tracking (deployed; owner+tenant flows not yet re-verified in prod)
 Of Phase 6's remaining doc scope — material/cost tracking and full
 workforce management (technician KYC, shifts, attendance, leave,
 training, safety certs) — workforce management stays out of scope,
@@ -780,6 +780,86 @@ itemized material consumption, wastage, and entitlement handling.
   chargeable outcome; a field_staff account not assigned to the ticket
   gets 403, while the assignee and the owner both succeed. Plus local
   `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/maintenance/tickets/{ticket_id}/materials` present in
+  `openapi.json`) — route-existence verification only, same gap as
+  every phase since 4b.
+
+### ✅ Phase 6 — Mokman Labour Services: core scope complete (6a-6d)
+Package/plan-tier foundation, the eligibility engine (with real
+enforcement for `escalate`/`third_party`), fair-use frequency/value
+limits, and material usage tracking are all live. Full workforce
+management (technician KYC, skill classification, service areas,
+shifts, attendance, leave, GPS check-in/out beyond what 5b already
+does per-ticket, training, safety certification, performance scoring)
+remains deliberately out of scope — confirmed with the user twice
+(6d's scoping and 6c's before it) as its own doc-sized track the spec
+explicitly flags for a build-vs-buy evaluation against existing
+HR-tech, not a proportionate slice of this phase.
+
+### 🧱 Phase 7a — AI Owner Assistant + AI Document Assistant (implemented, verified up to the LLM boundary — not yet deployed)
+Phase 7's own doc note is blunt: it "depends entirely on data volume
+and quality from Phases 1-6" and warns against predictive/ML work
+before there's real usage history. This system currently has only test
+data, ruling out anything data-hungry (Property Health Score,
+predictive maintenance, rent-trend prediction, photo-based damage
+detection) as premature. The doc's own recommended starting point —
+retrieval-augmented Q&A — doesn't need historical volume, only the
+portfolio's *current* state, which Phases 1-6 already provide in full.
+The user chose the combined Owner Assistant + Document Assistant scope
+over a narrower single-feature recommendation, and Claude over a local
+Ollama alternative (considered and rejected: it would need its own
+resourced Railway service, and has no good multimodal-document
+equivalent to Claude's native PDF/image understanding the Document
+Assistant depends on).
+- **Both features are read-only Q&A — no auto-actions, nothing written
+  back to the domain** — matching the doc's human-in-the-loop guidance
+  for this phase.
+- **No OCR pipeline built.** `Document.ocr_status` has been a stub
+  field since Phase 1 (docstring: *"OCR runs as an async job against
+  ocr_status"*) with no processing ever implemented. Rather than
+  building one, the Document Assistant sends the stored file straight
+  to Claude as a multimodal message (base64 image/PDF content block,
+  `app/modules/assistant/service.py`) and asks the question against it
+  directly — content-type comes back from S3/R2 object metadata set at
+  presigned-upload time (`app/common/storage.py`'s new
+  `get_object_bytes`), so no new `Document` column was needed either.
+  Anything that isn't an image or PDF gets an honest 415, not a silent
+  failure.
+- **Owner Assistant context is plain queries against existing tables —
+  zero new tables**, same "reporting = queries" precedent as 5c/6c/6d:
+  reuses `finance.service.get_owner_statement`,
+  `maintenance.service.list_tickets`,
+  `properties.service.list_properties_for_owner`, plus three direct
+  queries in the new module for overdue rent invoices, leases expiring
+  within 30 days, and pending expense/compliance-due approvals. The
+  system prompt instructs Claude to answer only from that context and
+  say so plainly when something isn't covered, never inventing numbers.
+- **Small reuse-motivated refactor**: extracted
+  `documents/router.py`'s `_verify_ownership` into
+  `documents/service.py` as `verify_document_access`, so the Document
+  Assistant's access check is exactly the same one a document download
+  uses, not a duplicate. Behavior-preserving — verified the existing
+  presign→confirm→list→download→delete flow returns identical status
+  codes before and after.
+- New `app/common/llm.py` wraps the Anthropic SDK; `anthropic_api_key`
+  added to `Settings`/`.env.example`. `POST /assistant/ask`
+  (owner-only) and `POST /assistant/documents/{id}/ask` (same access
+  level as downloading that document) both raise a clear 503 rather
+  than a confusing failure when no key is configured.
+- New `/owner/assistant` page (linked from the owner dashboard);
+  `DocumentVault` gained an inline "Ask a question" affordance per
+  document.
+- **Verified up to the LLM call boundary only — no real
+  `ANTHROPIC_API_KEY` is available yet.** Confirmed both endpoints
+  correctly 503 rather than crashing, which exercises everything up to
+  that point: `gather_owner_context`'s queries all ran successfully,
+  and the document-assistant path did a real `GetObject` against R2 for
+  an actually-uploaded test file before hitting the "not configured"
+  check. **Explicit gap, not silently skipped**: live answer-quality
+  (does the assistant's answer actually reflect the seeded data
+  correctly) is unverified until a real key is added — do this before
+  trusting the feature in prod.
 - **Not yet deployed.**
 
 ## Local development
