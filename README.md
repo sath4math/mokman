@@ -243,7 +243,7 @@ them anymore.
   `openapi.json`, `/owner/properties/new` and `/admin/vendors` resolving)
   — route-existence verification only, same gap as 4b.
 
-### 🧱 Phase 4d — Inspection Formalization + SLA Automation + Field Staff Offline PWA (deployed; SLA cron not yet wired up)
+### 🧱 Phase 4d — Inspection Formalization + SLA Automation + Field Staff Offline PWA (deployed, SLA cron live)
 After 4a-4c, every domain bullet in Phase 4's original scope was covered
 except two things the phase's own exit gate calls for: tickets "routed
 with SLA" and a technician who "works offline in the field." Both need a
@@ -284,25 +284,31 @@ for vendor blacklisting. `redis` is already a declared, unused dependency
 (`pyproject.toml`) but this deliberately doesn't reach for it — a single
 `UPDATE` doesn't need a queue or a lock.
 
-**Known gap: SLA cron isn't wired up yet, and can't be finished from
-inside this repo.** Post-deploy, hitting
-`www.mokman.com/api/backend/internal/maintenance/sla-check` with the
-right `X-Cron-Secret` still 401s — traced this to
-`apps/web/app/api/backend/[...path]/route.ts` only ever forwarding the
-`Authorization` and `Content-Type` headers to the backend, so it
-silently drops `X-Cron-Secret` on every request. **The external cron
-must call the FastAPI service's own Railway URL directly, not the
-`www.mokman.com/api/backend/...` proxy.** Three things remain, all
-deploy-console actions outside this repo's git history (same category as
-KYC/e-signature/payment-gateway vendor selection in earlier phases):
-1. Get `services/api`'s direct Railway URL (not the Vercel-proxied one).
-2. Set a real `SLA_CRON_SECRET` in Railway's environment — it isn't set
-   there yet, so it's silently running on the insecure
-   `change-me-in-production` code default.
-3. Configure the actual cron schedule in Railway's dashboard
-   (recommended every 15 minutes) to `POST` to
-   `<railway-url>/internal/maintenance/sla-check` with header
-   `X-Cron-Secret: <that value>`.
+**SLA cron is now live**: `.github/workflows/sla-cron.yml`, a scheduled
+GitHub Actions workflow (`*/15 * * * *` + manual `workflow_dispatch`),
+`POST`s to `<railway-url>/internal/maintenance/sla-check` directly —
+**not** through `www.mokman.com/api/backend/...`, because
+`apps/web/app/api/backend/[...path]/route.ts` only ever forwards the
+`Authorization` and `Content-Type` headers, so it silently drops
+`X-Cron-Secret` on every request (this cost a debugging round-trip: the
+first live run 401'd through the proxy before the workflow was pointed
+at Railway's URL directly). The URL and secret live as `SLA_API_URL` /
+`SLA_CRON_SECRET` **GitHub repository secrets** (Settings → Secrets and
+variables → Actions), matched by a same-named `SLA_CRON_SECRET`
+**Railway environment variable** on the `web` service (Railway's
+generic default name for what's actually the FastAPI backend here —
+worth remembering next time this needs finding again, since Railway
+doesn't name it after the repo folder `services/api`). The workflow
+normalizes a schemeless/trailing-slash `SLA_API_URL` defensively
+(defaults to `https://`, strips a trailing `/`) after the *actual* first
+failure turned out to be exactly that: the secret was saved without
+`https://`, so curl defaulted to `http://` and Railway's edge 301'd it
+to https, which curl doesn't follow.
+- GitHub Actions caveats worth knowing: `schedule` triggers are
+  best-effort (can slip several minutes under load — fine here), and
+  GitHub auto-disables scheduled workflows after 60 days of no repo
+  activity on any branch, silently, until someone reopens the Actions
+  tab and re-enables it.
 
 **Field Staff offline PWA**: hand-rolled, no new npm dependency —
 `apps/web/public/field-manifest.json` + `field-sw.js` (network-first
@@ -331,9 +337,10 @@ only ever be a bonus.
   the idempotency check and the `AuditLog` row, both new inspection types
   plus `upcoming_only`). Pushed to `main` and confirmed live in prod
   (all new/changed routes present in `openapi.json`,
-  `field-manifest.json`/`field-sw.js` serving) — but SLA automation isn't
-  actually running yet (see the cron gap above), and this carries the
-  same route-existence-only prod-verification caveat as 4b/4c.
+  `field-manifest.json`/`field-sw.js` serving), and the SLA cron itself
+  is confirmed running via a successful live `sla-check` call (see
+  above) — this still carries the same route-existence-only
+  prod-verification caveat as 4b/4c for everything else in this phase.
 
 ## Local development
 
