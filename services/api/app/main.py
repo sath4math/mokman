@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.assistant.router import router as assistant_router
 from app.modules.auth.router import router as auth_router
 from app.modules.compliance.router import router as compliance_router
 from app.modules.documents.router import router as documents_router
@@ -43,6 +44,7 @@ app.include_router(vendors_router)
 app.include_router(maintenance_schedules_router)
 app.include_router(utilities_router)
 app.include_router(compliance_router)
+app.include_router(assistant_router)
 app.include_router(maintenance_internal_router)
 
 

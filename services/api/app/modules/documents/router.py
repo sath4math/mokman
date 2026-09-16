@@ -20,77 +20,44 @@ from app.modules.documents.schemas import (
 )
 from app.modules.documents.service import (
     DocumentNotFoundError,
+    UnsupportedDocumentOwnerTypeError,
     create_document,
     delete_document,
     get_document,
     list_documents,
 )
-from app.modules.inspections.service import (
-    InspectionNotFoundError,
-    NotPartyToInspectionError,
-    get_inspection,
-)
-from app.modules.inspections.service import (
-    require_party as require_inspection_party,
-)
-from app.modules.leases.service import (
-    LeaseNotFoundError,
-    NotPartyToLeaseError,
-    get_lease,
-)
-from app.modules.leases.service import (
-    require_party as require_lease_party,
-)
-from app.modules.maintenance.service import (
-    NotPartyToTicketError,
-    TicketNotFoundError,
-    get_ticket,
-    require_ticket_access,
-)
-from app.modules.properties.service import PropertyNotFoundError, get_owned_property
+from app.modules.documents.service import verify_document_access as _verify_document_access
+from app.modules.inspections.service import InspectionNotFoundError, NotPartyToInspectionError
+from app.modules.leases.service import LeaseNotFoundError, NotPartyToLeaseError
+from app.modules.maintenance.service import NotPartyToTicketError, TicketNotFoundError
+from app.modules.properties.service import PropertyNotFoundError
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 def _verify_ownership(db: Session, current: CurrentUser, owner_type: str, owner_id: uuid.UUID) -> None:
-    """Authorizes a caller against the entity a document is attached to.
-
-    Grows as new owner_types gain their own document ownership: 'property'
-    (Phase 1), 'lease' and 'inspection' (Phase 2), 'ticket' (Phase 4).
-    """
-    if owner_type == "property":
-        try:
-            get_owned_property(db, current.user.id, owner_id)
-        except PropertyNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
-    elif owner_type == "lease":
-        try:
-            lease = get_lease(db, owner_id)
-            require_lease_party(db, lease, current.user.id)
-        except LeaseNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lease not found") from None
-        except NotPartyToLeaseError:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this lease") from None
-    elif owner_type == "inspection":
-        try:
-            inspection = get_inspection(db, owner_id)
-            require_inspection_party(db, inspection, current.user.id)
-        except InspectionNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found") from None
-        except NotPartyToInspectionError:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection"
-            ) from None
-    elif owner_type == "ticket":
-        try:
-            ticket = get_ticket(db, owner_id)
-            require_ticket_access(db, ticket, current.user.id, current.role)
-        except TicketNotFoundError:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
-        except NotPartyToTicketError:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
-    else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported owner_type: {owner_type}")
+    """Thin HTTP wrapper around documents.service.verify_document_access
+    (moved there in Phase 7a so the AI Document Assistant can reuse it)."""
+    try:
+        _verify_document_access(db, current.user.id, current.role, owner_type, owner_id)
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except LeaseNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lease not found") from None
+    except NotPartyToLeaseError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this lease") from None
+    except InspectionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found") from None
+    except NotPartyToInspectionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection") from None
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
+    except UnsupportedDocumentOwnerTypeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported owner_type: {owner_type}"
+        ) from None
 
 
 @router.post("/presign", response_model=PresignResponse)

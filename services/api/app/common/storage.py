@@ -38,3 +38,16 @@ def generate_presigned_download(key: str) -> str:
 
 def delete_object(key: str) -> None:
     _client.delete_object(Bucket=settings.s3_bucket, Key=key)
+
+
+def get_object_bytes(key: str) -> tuple[bytes, str]:
+    """Fetches an object's bytes and content-type directly (Phase 7a).
+
+    Content-type comes back from S3/R2 as object metadata set at
+    presigned-upload time (generate_presigned_upload's ContentType
+    param) — no separate content-type column needed on Document.
+    """
+    response = _client.get_object(Bucket=settings.s3_bucket, Key=key)
+    body = response["Body"].read()
+    content_type = response.get("ContentType", "application/octet-stream")
+    return body, content_type

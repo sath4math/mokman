@@ -26,6 +26,11 @@ export function DocumentVault({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [askingId, setAskingId] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [askBusy, setAskBusy] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
 
   async function handleUpload() {
     const file = fileInputRef.current?.files?.[0];
@@ -97,6 +102,35 @@ export function DocumentVault({
     }
   }
 
+  function toggleAsk(id: string) {
+    setAskingId((prev) => (prev === id ? null : id));
+    setQuestion("");
+    setAnswer(null);
+    setAskError(null);
+  }
+
+  async function handleAsk() {
+    if (!askingId || !question.trim()) return;
+    setAskBusy(true);
+    setAskError(null);
+    setAnswer(null);
+    try {
+      const response = await fetch(`/api/backend/assistant/documents/${askingId}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setAskError(data.detail ?? "Failed to get an answer");
+        return;
+      }
+      setAnswer(data.answer);
+    } finally {
+      setAskBusy(false);
+    }
+  }
+
   return (
     <section className={styles.section}>
       <h2 className={styles.heading}>Documents</h2>
@@ -112,10 +146,30 @@ export function DocumentVault({
               <button type="button" onClick={() => handleDownload(doc.id)} className={ui.link}>
                 Download
               </button>
+              <button type="button" onClick={() => toggleAsk(doc.id)} className={ui.link}>
+                {askingId === doc.id ? "Cancel" : "Ask a question"}
+              </button>
               <button type="button" onClick={() => handleDelete(doc.id)} className={ui.linkDanger}>
                 Delete
               </button>
             </span>
+            {askingId === doc.id && (
+              <div className={styles.uploadRow}>
+                <label className={ui.field}>
+                  Question
+                  <input
+                    className={ui.input}
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                  />
+                </label>
+                <button type="button" onClick={handleAsk} disabled={askBusy} className={ui.btnSecondary}>
+                  {askBusy ? "Asking…" : "Ask"}
+                </button>
+                {answer && <p className={ui.mutedText}>{answer}</p>}
+                {askError && <p className={ui.errorText}>{askError}</p>}
+              </div>
+            )}
           </li>
         ))}
         {documents.length === 0 && <p className={ui.mutedText}>No documents uploaded yet.</p>}

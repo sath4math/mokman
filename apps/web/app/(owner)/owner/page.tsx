@@ -35,6 +35,9 @@ export default async function OwnerDashboardPage() {
         <Link href="/owner/profile" className={ui.link}>
           {profile ? "Edit profile" : "Complete your profile"}
         </Link>
+        <Link href="/owner/assistant" className={ui.link}>
+          Ask the Owner Assistant
+        </Link>
       </section>
 
       <section className={styles.propertiesSection}>

@@ -1,0 +1,141 @@
+import base64
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.common.llm import ask_claude
+from app.common.storage import get_object_bytes
+from app.models.compliance import ComplianceDue
+from app.models.expense import Expense, ExpenseStatus
+from app.models.lease import Lease
+from app.models.maintenance import TicketStatus
+from app.models.property import Property
+from app.models.rent import InvoiceStatus, RentInvoice
+from app.modules.documents.service import get_document, verify_document_access
+from app.modules.finance.service import default_year_month, get_owner_statement
+from app.modules.maintenance.service import list_tickets
+from app.modules.properties.service import list_properties_for_owner
+from app.modules.rent.service import recompute_invoice_status
+
+_OWNER_SYSTEM_PROMPT = (
+    "You are the Mokman Owner Assistant. Answer the owner's question using "
+    "ONLY the portfolio data given below. Never invent numbers or facts not "
+    "present in it. If the data doesn't cover what's asked, say so plainly "
+    "instead of guessing. Keep answers concise."
+)
+
+_DOCUMENT_SYSTEM_PROMPT = (
+    "You are the Mokman Document Assistant. Answer the user's question "
+    "using ONLY the attached document. If the document doesn't contain the "
+    "answer, say so plainly instead of guessing. Keep answers concise."
+)
+
+_LOOKAHEAD_DAYS = 30
+
+
+class UnsupportedDocumentTypeError(Exception):
+    pass
+
+
+def gather_owner_context(db: Session, owner_id: uuid.UUID) -> str:
+    """Plain queries against existing tables -- no new tables, same
+    "reporting = queries" precedent as 5c/6c/6d."""
+    today = datetime.now(UTC).date()
+    lookahead = today + timedelta(days=_LOOKAHEAD_DAYS)
+
+    properties = list_properties_for_owner(db, owner_id)
+
+    year, month = default_year_month()
+    statement = get_owner_statement(db, owner_id, year, month)
+
+    open_tickets = [t for t in list_tickets(db, owner_id, "owner", None) if t.status != TicketStatus.CLOSED]
+
+    invoices = db.execute(
+        select(RentInvoice).join(Property, RentInvoice.property_id == Property.id).where(Property.owner_id == owner_id)
+    ).scalars()
+    overdue_invoices = [i for i in invoices if recompute_invoice_status(db, i).status == InvoiceStatus.OVERDUE]
+
+    expiring_leases = list(
+        db.execute(
+            select(Lease)
+            .join(Property, Lease.property_id == Property.id)
+            .where(Property.owner_id == owner_id)
+            .where(Lease.end_date >= today)
+            .where(Lease.end_date <= lookahead)
+        ).scalars()
+    )
+
+    pending_expenses = list(
+        db.execute(
+            select(Expense)
+            .join(Property, Expense.property_id == Property.id)
+            .where(Property.owner_id == owner_id)
+            .where(Expense.status == ExpenseStatus.PENDING)
+        ).scalars()
+    )
+
+    dues_soon = list(
+        db.execute(
+            select(ComplianceDue)
+            .join(Property, ComplianceDue.property_id == Property.id)
+            .where(Property.owner_id == owner_id)
+            .where(ComplianceDue.paid_at.is_(None))
+            .where(ComplianceDue.due_date <= lookahead)
+        ).scalars()
+    )
+
+    lines = [
+        f"Properties ({len(properties)}):",
+        *[f"- {p.name} ({p.status.value}), {p.city}" for p in properties],
+        "",
+        f"This month's finances (property {statement.year}-{statement.month:02d}):",
+        f"- Rent collected: {statement.rent_collected}",
+        f"- Expenses: {statement.expenses}",
+        f"- Mokman fee: {statement.mokman_fee}",
+        f"- Net payable to owner: {statement.net_payable}",
+        "",
+        f"Open maintenance tickets: {len(open_tickets)}",
+        *[f"- {t.category} ({t.status.value}), priority {t.priority.value}" for t in open_tickets],
+        "",
+        f"Overdue rent invoices: {len(overdue_invoices)}",
+        *[f"- due {i.due_date}, amount {i.amount_due}" for i in overdue_invoices],
+        "",
+        f"Leases expiring within {_LOOKAHEAD_DAYS} days: {len(expiring_leases)}",
+        *[f"- ends {lease.end_date}, rent {lease.monthly_rent}" for lease in expiring_leases],
+        "",
+        f"Expenses pending your approval: {len(pending_expenses)}",
+        *[f"- {e.category}: {e.amount}" for e in pending_expenses],
+        "",
+        f"Society/government dues due within {_LOOKAHEAD_DAYS} days: {len(dues_soon)}",
+        *[f"- {d.category.value}: {d.amount}, due {d.due_date}" for d in dues_soon],
+    ]
+    return "\n".join(lines)
+
+
+def ask_owner_assistant(db: Session, owner_id: uuid.UUID, question: str) -> str:
+    context = gather_owner_context(db, owner_id)
+    return ask_claude(_OWNER_SYSTEM_PROMPT, f"Portfolio data:\n{context}\n\nQuestion: {question}")
+
+
+def ask_about_document(db: Session, user_id: uuid.UUID, role: str, document_id: uuid.UUID, question: str) -> str:
+    document = get_document(db, document_id)
+    verify_document_access(db, user_id, role, document.owner_type, document.owner_id)
+
+    file_bytes, content_type = get_object_bytes(document.s3_key)
+    encoded = base64.b64encode(file_bytes).decode("ascii")
+
+    if content_type.startswith("image/"):
+        block_type = "image"
+    elif content_type == "application/pdf":
+        block_type = "document"
+    else:
+        raise UnsupportedDocumentTypeError
+
+    content: list[dict[str, Any]] = [
+        {"type": block_type, "source": {"type": "base64", "media_type": content_type, "data": encoded}},
+        {"type": "text", "text": question},
+    ]
+    return ask_claude(_DOCUMENT_SYSTEM_PROMPT, content)
