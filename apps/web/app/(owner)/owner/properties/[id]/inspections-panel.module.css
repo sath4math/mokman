@@ -17,8 +17,7 @@
 
 .item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
@@ -26,9 +25,24 @@
   gap: var(--space-3);
 }
 
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .itemInfo {
   display: flex;
   flex-direction: column;
+}
+
+.expanded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
 }
 
 .formRow {

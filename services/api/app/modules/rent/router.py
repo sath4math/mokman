@@ -12,10 +12,11 @@ from app.modules.leases.service import (
     get_lease,
     require_party,
 )
-from app.modules.rent.schemas import PaymentCreate, RentInvoiceOut
+from app.modules.rent.schemas import PaymentCreate, RentEscalationProjectionOut, RentInvoiceOut
 from app.modules.rent.service import (
     InvoiceNotFoundError,
     get_invoice,
+    list_escalation_projections,
     list_invoices_for_lease,
     record_payment,
 )
@@ -82,3 +83,13 @@ def pay_invoice(
     except NotPartyToLeaseError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this lease") from None
     return RentInvoiceOut.model_validate(record_payment(db, invoice, data, current.user.id))
+
+
+@router.get("/escalation-projections", response_model=list[RentEscalationProjectionOut])
+def escalation_projections(
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RentEscalationProjectionOut]:
+    if current.role != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner role required")
+    return list_escalation_projections(db, current.user.id)

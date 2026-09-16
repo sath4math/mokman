@@ -9,13 +9,16 @@ from sqlalchemy.orm import Session
 from app.common.llm import ask_claude
 from app.common.storage import get_object_bytes
 from app.models.compliance import ComplianceDue
+from app.models.document import Document
 from app.models.expense import Expense, ExpenseStatus
 from app.models.lease import Lease
 from app.models.maintenance import TicketStatus
 from app.models.property import Property
 from app.models.rent import InvoiceStatus, RentInvoice
-from app.modules.documents.service import get_document, verify_document_access
+from app.modules.documents.service import get_document, list_documents, verify_document_access
 from app.modules.finance.service import default_year_month, get_owner_statement
+from app.modules.inspections.service import get_inspection
+from app.modules.inspections.service import require_party as require_inspection_party
 from app.modules.maintenance.service import list_tickets
 from app.modules.properties.service import list_properties_for_owner
 from app.modules.rent.service import recompute_invoice_status
@@ -33,10 +36,23 @@ _DOCUMENT_SYSTEM_PROMPT = (
     "answer, say so plainly instead of guessing. Keep answers concise."
 )
 
+_DAMAGE_ANALYSIS_PROMPT = (
+    "You are the Mokman Inspection Assistant. Examine the attached inspection "
+    "photos for damage, leaks, cracks, or cleanliness issues. Describe what "
+    "you observe per photo. If both a before_photo and an after_photo are "
+    "present, explicitly compare them. If nothing concerning is visible, say "
+    "so plainly instead of inventing an issue. Keep the analysis concise."
+)
+
 _LOOKAHEAD_DAYS = 30
+_MAX_ANALYZED_PHOTOS = 6
 
 
 class UnsupportedDocumentTypeError(Exception):
+    pass
+
+
+class NoInspectionPhotosError(Exception):
     pass
 
 
@@ -120,22 +136,46 @@ def ask_owner_assistant(db: Session, owner_id: uuid.UUID, question: str) -> str:
     return ask_claude(_OWNER_SYSTEM_PROMPT, f"Portfolio data:\n{context}\n\nQuestion: {question}")
 
 
-def ask_about_document(db: Session, user_id: uuid.UUID, role: str, document_id: uuid.UUID, question: str) -> str:
-    document = get_document(db, document_id)
-    verify_document_access(db, user_id, role, document.owner_type, document.owner_id)
-
+def _document_content_block(document: Document) -> dict[str, Any] | None:
+    """Builds a Claude image/PDF content block for a stored document, or
+    None if its content-type isn't supported for multimodal Q&A."""
     file_bytes, content_type = get_object_bytes(document.s3_key)
-    encoded = base64.b64encode(file_bytes).decode("ascii")
-
     if content_type.startswith("image/"):
         block_type = "image"
     elif content_type == "application/pdf":
         block_type = "document"
     else:
+        return None
+    encoded = base64.b64encode(file_bytes).decode("ascii")
+    return {"type": block_type, "source": {"type": "base64", "media_type": content_type, "data": encoded}}
+
+
+def ask_about_document(db: Session, user_id: uuid.UUID, role: str, document_id: uuid.UUID, question: str) -> str:
+    document = get_document(db, document_id)
+    verify_document_access(db, user_id, role, document.owner_type, document.owner_id)
+
+    block = _document_content_block(document)
+    if block is None:
         raise UnsupportedDocumentTypeError
 
-    content: list[dict[str, Any]] = [
-        {"type": block_type, "source": {"type": "base64", "media_type": content_type, "data": encoded}},
-        {"type": "text", "text": question},
-    ]
+    content: list[dict[str, Any]] = [block, {"type": "text", "text": question}]
     return ask_claude(_DOCUMENT_SYSTEM_PROMPT, content)
+
+
+def analyze_inspection_photos(db: Session, user_id: uuid.UUID, inspection_id: uuid.UUID) -> str:
+    inspection = get_inspection(db, inspection_id)
+    require_inspection_party(db, inspection, user_id)
+
+    documents = list_documents(db, "inspection", inspection_id)
+    content: list[dict[str, Any]] = []
+    for document in documents[:_MAX_ANALYZED_PHOTOS]:
+        block = _document_content_block(document)
+        if block is not None:
+            content.append(block)
+            content.append({"type": "text", "text": f"(document_type: {document.document_type})"})
+
+    if not content:
+        raise NoInspectionPhotosError
+
+    content.append({"type": "text", "text": "Analyze the photos above."})
+    return ask_claude(_DAMAGE_ANALYSIS_PROMPT, content)

@@ -23,3 +23,11 @@ class PaymentCreate(BaseModel):
     amount: float
     method: str
     reference_note: str | None = None
+
+
+class RentEscalationProjectionOut(BaseModel):
+    lease_id: uuid.UUID
+    property_id: uuid.UUID
+    current_rent: float
+    projected_rent: float
+    escalation_date: date

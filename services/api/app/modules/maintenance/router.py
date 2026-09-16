@@ -20,6 +20,7 @@ from app.modules.maintenance.schemas import (
     MaintenanceSummaryOut,
     MaterialUsageIn,
     MaterialUsageOut,
+    RecurringProblemOut,
     ResolveRequest,
     ServiceCategoryIn,
     ServiceCategoryOut,
@@ -56,6 +57,7 @@ from app.modules.maintenance.service import (
     create_service_category,
     create_ticket,
     delete_eligibility_rule,
+    detect_recurring_problems,
     diagnose_ticket,
     estimate_ticket,
     get_maintenance_summary,
@@ -564,29 +566,40 @@ def reopen(
     return TicketOut.model_validate(ticket)
 
 
-@router.get("/reports/summary", response_model=MaintenanceSummaryOut)
-def maintenance_summary(
-    property_id: uuid.UUID | None = None,
-    current: CurrentUser = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> MaintenanceSummaryOut:
+def _resolve_report_scope(
+    db: Session, current: CurrentUser, property_id: uuid.UUID | None
+) -> list[uuid.UUID] | None:
     if current.role not in ("owner", "admin"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required")
 
-    property_ids: list[uuid.UUID] | None
     if property_id is not None:
         if current.role == "owner":
             try:
                 get_owned_property(db, current.user.id, property_id)
             except PropertyNotFoundError:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
-        property_ids = [property_id]
-    elif current.role == "owner":
-        property_ids = [p.id for p in list_properties_for_owner(db, current.user.id)]
-    else:
-        property_ids = None
+        return [property_id]
+    if current.role == "owner":
+        return [p.id for p in list_properties_for_owner(db, current.user.id)]
+    return None
 
-    return get_maintenance_summary(db, property_ids)
+
+@router.get("/reports/summary", response_model=MaintenanceSummaryOut)
+def maintenance_summary(
+    property_id: uuid.UUID | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MaintenanceSummaryOut:
+    return get_maintenance_summary(db, _resolve_report_scope(db, current, property_id))
+
+
+@router.get("/reports/recurring-problems", response_model=list[RecurringProblemOut])
+def recurring_problems(
+    property_id: uuid.UUID | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[RecurringProblemOut]:
+    return detect_recurring_problems(db, _resolve_report_scope(db, current, property_id))
 
 
 @internal_router.post("/sla-check", response_model=SlaCheckResult)

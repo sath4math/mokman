@@ -151,6 +151,14 @@ class MaintenanceSummaryOut(BaseModel):
     cost_variance: float
 
 
+class RecurringProblemOut(BaseModel):
+    property_id: uuid.UUID
+    property_name: str
+    category: str
+    ticket_count: int
+    window_days: int
+
+
 class TicketOut(BaseModel):
     id: uuid.UUID
     property_id: uuid.UUID

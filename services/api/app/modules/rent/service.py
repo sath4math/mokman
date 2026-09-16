@@ -9,7 +9,8 @@ from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.rent import InvoiceStatus, RentInvoice
 from app.modules.finance.service import record_ledger_entry
-from app.modules.rent.schemas import PaymentCreate
+from app.modules.leases.service import list_leases_for_owner
+from app.modules.rent.schemas import PaymentCreate, RentEscalationProjectionOut
 
 # Flat platform fee on collected rent. Becomes configurable per-plan
 # pricing in a later phase; a single constant is proportionate for now.
@@ -145,3 +146,33 @@ def record_payment(db: Session, invoice: RentInvoice, data: PaymentCreate, user_
         invoice_id=invoice.id,
     )
     return recompute_invoice_status(db, invoice)
+
+
+def project_next_escalation(lease: Lease) -> RentEscalationProjectionOut | None:
+    """Phase 7c: projects the lease's next annual-escalation rent using
+    the exact same compounding formula _amount_for_period already
+    applies at invoicing time -- a projection, not a new calculation."""
+    if not lease.annual_escalation_percentage:
+        return None
+
+    today = datetime.now(UTC).date()
+    current_index = _period_index_for(lease.start_date, today)
+    years_elapsed = current_index // 12
+    next_escalation_index = (years_elapsed + 1) * 12
+    escalation_date = _add_months(lease.start_date, next_escalation_index)
+    if escalation_date > lease.end_date:
+        return None
+
+    return RentEscalationProjectionOut(
+        lease_id=lease.id,
+        property_id=lease.property_id,
+        current_rent=_amount_for_period(lease, current_index),
+        projected_rent=_amount_for_period(lease, next_escalation_index),
+        escalation_date=escalation_date,
+    )
+
+
+def list_escalation_projections(db: Session, owner_id: uuid.UUID) -> list[RentEscalationProjectionOut]:
+    active_leases = [lease for lease in list_leases_for_owner(db, owner_id) if lease.status == LeaseStatus.ACTIVE]
+    projections = [project_next_escalation(lease) for lease in active_leases]
+    return [p for p in projections if p is not None]

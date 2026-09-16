@@ -31,6 +31,7 @@ from app.modules.maintenance.schemas import (
     ChecklistTemplateUpdate,
     MaintenanceSummaryOut,
     MaterialUsageIn,
+    RecurringProblemOut,
     ResolveRequest,
     ServiceCategoryIn,
     ServiceCategoryUpdate,
@@ -48,6 +49,12 @@ PRIORITY_SLA_HOURS: dict[TicketPriority, int] = {
     TicketPriority.MEDIUM: 72,
     TicketPriority.LOW: 168,
 }
+
+# Recurring-problem detection (Phase 7c) -- warranty-blind, unlike 5c's
+# is_repeat_failure: N tickets in the same category on the same
+# property within this window, regardless of warranty status.
+_RECURRING_PROBLEM_WINDOW_DAYS = 180
+_RECURRING_PROBLEM_MIN_COUNT = 3
 
 
 class TicketNotFoundError(Exception):
@@ -748,3 +755,30 @@ def get_maintenance_summary(db: Session, property_ids: list[uuid.UUID] | None) -
         total_actual_cost=total_actual_cost,
         cost_variance=total_actual_cost - total_estimated_cost,
     )
+
+
+def detect_recurring_problems(db: Session, property_ids: list[uuid.UUID] | None) -> list[RecurringProblemOut]:
+    """Warranty-blind recurring-problem detection (Phase 7c) --
+    property_ids=None means "all properties" (admin, no scope), same
+    convention as get_maintenance_summary above."""
+    cutoff = datetime.now(UTC) - timedelta(days=_RECURRING_PROBLEM_WINDOW_DAYS)
+    stmt = (
+        select(Property.id, Property.name, MaintenanceTicket.category, func.count().label("ticket_count"))
+        .join(MaintenanceTicket, MaintenanceTicket.property_id == Property.id)
+        .where(MaintenanceTicket.created_at >= cutoff)
+        .group_by(Property.id, Property.name, MaintenanceTicket.category)
+        .having(func.count() >= _RECURRING_PROBLEM_MIN_COUNT)
+    )
+    if property_ids is not None:
+        stmt = stmt.where(Property.id.in_(property_ids))
+
+    return [
+        RecurringProblemOut(
+            property_id=row.id,
+            property_name=row.name,
+            category=row.category,
+            ticket_count=row.ticket_count,
+            window_days=_RECURRING_PROBLEM_WINDOW_DAYS,
+        )
+        for row in db.execute(stmt)
+    ]

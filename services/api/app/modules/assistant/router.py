@@ -7,7 +7,9 @@ from app.common.llm import AssistantNotConfiguredError
 from app.database import get_db
 from app.modules.assistant.schemas import AssistantAskIn, AssistantAskOut
 from app.modules.assistant.service import (
+    NoInspectionPhotosError,
     UnsupportedDocumentTypeError,
+    analyze_inspection_photos,
     ask_about_document,
     ask_owner_assistant,
 )
@@ -71,6 +73,27 @@ def ask_document(
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="This document type isn't supported for Q&A (only images and PDFs are)",
+        ) from None
+    except AssistantNotConfiguredError:
+        raise _not_configured() from None
+    return AssistantAskOut(answer=answer)
+
+
+@router.post("/inspections/{inspection_id}/analyze", response_model=AssistantAskOut)
+def analyze_inspection(
+    inspection_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AssistantAskOut:
+    try:
+        answer = analyze_inspection_photos(db, current.user.id, inspection_id)
+    except InspectionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection not found") from None
+    except NotPartyToInspectionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this inspection") from None
+    except NoInspectionPhotosError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No analyzable photos attached to this inspection"
         ) from None
     except AssistantNotConfiguredError:
         raise _not_configured() from None

@@ -135,6 +135,14 @@ export interface RentInvoice {
   status: InvoiceStatus;
 }
 
+export interface RentEscalationProjection {
+  lease_id: string;
+  property_id: string;
+  current_rent: number;
+  projected_rent: number;
+  escalation_date: string;
+}
+
 export type LedgerEntryType =
   | "rent_payment"
   | "mokman_fee"
@@ -287,6 +295,14 @@ export interface MaterialUsage {
   logged_by: string;
   expense_id: string | null;
   created_at: string;
+}
+
+export interface RecurringProblem {
+  property_id: string;
+  property_name: string;
+  category: string;
+  ticket_count: number;
+  window_days: number;
 }
 
 export interface FieldStaffUser {
