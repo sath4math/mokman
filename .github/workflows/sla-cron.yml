@@ -9,28 +9,20 @@ jobs:
   sla-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose SLA_API_URL shape (never prints the value itself)
-        run: |
-          url="${{ secrets.SLA_API_URL }}"
-          echo "Length: ${#url}"
-          case "$url" in
-            https://*) echo "Scheme: https:// (ok)" ;;
-            http://*) echo "Scheme: http:// -- should be https://, this is likely the bug" ;;
-            *) echo "Scheme: none found -- SLA_API_URL must start with https://" ;;
-          esac
-          case "$url" in
-            */) echo "Trailing slash: yes -- remove it, the workflow already appends a leading slash" ;;
-            *) echo "Trailing slash: no (ok)" ;;
-          esac
-          case "$url" in
-            *" "*) echo "Contains a space -- likely stray whitespace from copy-paste" ;;
-            *) echo "No embedded whitespace (ok)" ;;
-          esac
-
       - name: Trigger SLA breach check
         run: |
-          target="${{ secrets.SLA_API_URL }}/internal/maintenance/sla-check"
-          echo "Requesting: $target"
+          # Normalize SLA_API_URL defensively: tolerate a missing scheme
+          # (default to https, since that's all Railway serves) and a
+          # trailing slash, so a re-typed secret can't silently regress
+          # this into a redirect loop like it did the first time.
+          url="${{ secrets.SLA_API_URL }}"
+          case "$url" in
+            http://*|https://*) ;;
+            *) url="https://$url" ;;
+          esac
+          url="${url%/}"
+
+          target="$url/internal/maintenance/sla-check"
           status=$(curl -s -D /tmp/headers.txt -o /tmp/response.json -w "%{http_code}" -X POST \
             "$target" \
             -H "X-Cron-Secret: ${{ secrets.SLA_CRON_SECRET }}")
