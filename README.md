@@ -1159,7 +1159,7 @@ frontend, not a proportionate single slice.
   property-scoped owner pages resolving) — route-existence
   verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 8c — Investment Intelligence (implemented, verified locally — not yet deployed)
+### 🧱 Phase 8c — Investment Intelligence (deployed; owner+tenant flows not yet re-verified in prod)
 Continues the confirmed 8b→8c→8d sequencing. Directly revisits 7b's
 explicit cut: "yield/ROI — `Property` has no cost-basis field...
 adding one just for this wouldn't be proportionate to *that* slice."
@@ -1206,7 +1206,78 @@ market-rent comps this codebase has never had access to.
   same as 7a/7c) confirming the summary computation and auth run
   cleanly first. Plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
   `build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/properties/{id}/investment-summary`,
+  `/assistant/properties/{id}/investment-recommendation` present in
+  `openapi.json`, `/owner/insights` resolving) — route-existence
+  verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 8d — Sale, Transfer & Exit (implemented, verified locally — not yet deployed)
+Closes out the confirmed 8b→8c→8d sequencing and Phase 8's buildable
+scope — "the natural end of the Digital Property Passport lifecycle
+from Phase 1" per the doc's own framing.
+- New `PropertySale` model: buyer/site-visit coordination reduces to
+  contact fields, not a scheduling workflow — same proportionate cut
+  8a applied to "surveyor coordination." Ownership/utility/society
+  transfer reduces to a checklist of three booleans, not three
+  separate workflows.
+- **Deliberate contrast with 8b's renovation-payment flow**: settlement
+  stays ledger-isolated, like 8a's insurance/compliance — a one-off
+  capital sale isn't a recurring operational cost, and its accounting/
+  tax treatment is out of scope here. Verified explicitly: completing
+  a sale creates zero `Expense`/ledger entries.
+- **Readiness assessment** (`compute_sale_readiness`,
+  `app/modules/properties/service.py`, same "computed on read"
+  precedent as `compute_health_score`/`compute_investment_summary`):
+  reuses `compute_health_score`'s open-ticket count directly, plus
+  three new checks — an active lease, unsettled `InsuranceClaim`s
+  (joined through `InsurancePolicy`), and incomplete
+  `RenovationProject`s. All three imported as **models**, not their
+  service modules, since `insurance.service`/`renovation.service`
+  already import `properties.service` — importing their service
+  modules back would cycle.
+- **Archival reuses an existing enum value**: `complete_sale` sets the
+  property's `status` to the `PropertyStatus.INACTIVE` value that's
+  existed since Phase 1, rather than adding a new status.
+- **Zero document vault changes — a first for Phase 8's sub-phases**
+  (every prior one added a new `owner_type` branch): sale
+  documentation (agreement, NOC for sale) attaches through the
+  property detail page's **existing** `DocumentVault`
+  (`ownerType="property"`), just with a new `"sale_agreement"`
+  `document_type` value.
+- New `SalePanel` (readiness display, sale record, transfer checklist,
+  "Complete sale" action) on the owner property detail page.
+- **Verified against local Postgres end-to-end**: a clean property
+  reports `is_ready: true` with all counts zero; an open ticket, an
+  unsettled insurance claim (via the join), and an incomplete
+  renovation project each correctly flipped their respective signal;
+  the full create → toggle-checklist → complete flow correctly set
+  `status: completed`, defaulted `settlement_date`, archived the
+  **property's** status to `inactive`, and created no ledger entries;
+  a non-owner correctly 403s creating a sale and 404s reading
+  sale-readiness (matching `get_owned_property`'s existing behavior).
+  Also caught and fixed a copy-paste error (`listing_price`/
+  `sale_price` mistakenly typed as `String`) before running any
+  checks. Plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
+
+### ✅ Phase 8 — Complete Property Lifecycle: core scope complete (8a-8d)
+Asset & Inventory Management, Insurance Management, Renovation &
+Project Management, Investment Intelligence, and Sale/Transfer/Exit
+are all built. **Formally out of scope, not silently deferred**:
+- **Smart Property/IoT** — hardware/vendor-dependent (device SDKs,
+  MQTT/webhook ingestion); no IoT vendor has been integrated or chosen
+  anywhere in this codebase, the doc's own "separate technical track"
+  guidance, same category of blocker as Phase 7's rent-intelligence
+  data source.
+- **NRI Property Management** — mostly already satisfied by existing
+  infrastructure rather than needing new code: PoA via
+  `AuthorizedRepresentative` (Phase 1), "remote approvals" via this
+  being a web app end to end, "video inspections" via the Document
+  vault already accepting any content-type through the existing
+  `"inspection"` scope. The one genuinely new piece — currency display
+  — is a cross-cutting i18n concern touching every monetary display in
+  the frontend, not a proportionate single slice.
 
 ## Local development
 
