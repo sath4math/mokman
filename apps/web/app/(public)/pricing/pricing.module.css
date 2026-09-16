@@ -19,7 +19,7 @@
   overflow: hidden;
   background:
     linear-gradient(to top, rgba(5, 15, 10, 0.8), rgba(5, 15, 10, 0.15)),
-    url("/images/apartment-building.jpg") center / cover no-repeat;
+    url("/images/apartment-building-day.jpg") center / cover no-repeat;
   padding: var(--space-6);
 }
 

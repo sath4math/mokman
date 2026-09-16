@@ -1279,7 +1279,7 @@ are all built. **Formally out of scope, not silently deferred**:
   — is a cross-cutting i18n concern touching every monetary display in
   the frontend, not a proportionate single slice.
 
-### 🎨 Public pages — property photography (implemented, verified locally — not yet deployed)
+### 🎨 Public pages — property photography (deployed)
 Not a phase-doc item — a follow-up visual-polish request after Phase 8
 completed. No AI image-generation tool/API is available in this
 environment, so real photography was substituted: sourced from
@@ -1292,11 +1292,19 @@ watermark doesn't establish a free license.
   tenant/admin/field dashboards and the plain `/privacy`/`/terms`
   pages are untouched.
 - Three property-relevant photos added under `apps/web/public/images/`
-  (`hero-house.jpg`, `cozy-living-room.jpg`,
-  `apartment-building.jpg`), applied via plain CSS
+  (`luxury-house-pool.jpg` for the landing hero, `cozy-living-room.jpg`
+  for login/register, `apartment-building-day.jpg` for the pricing
+  banner), applied via plain CSS
   `background: linear-gradient(...), url(...) center / cover no-repeat;`
   — no `next/image`, consistent with this app's CSS-Modules-only
   convention.
+- **Landing and pricing photos swapped once** after the initial pass
+  (originally `hero-house.jpg` and a dark night-shot
+  `apartment-building.jpg`) — the user asked for different images;
+  replaced with brighter daytime shots (`luxury-house-pool.jpg`,
+  `apartment-building-day.jpg`) and the old files deleted. Same
+  Unsplash-sourcing approach, same CSS wiring, no code-path changes —
+  only the two `url(...)` references and their backing files.
 - Text/button colors on top of each photo were hardcoded to white/
   near-white rather than left on the theme's dark `--color-text`
   tokens — including a `.secondaryAction` override on the landing
@@ -1306,7 +1314,10 @@ watermark doesn't establish a free license.
 - Verified via local `pnpm lint`/`typecheck`/`build` plus a Playwright
   screenshot pass against all four pages (landing, login, register,
   pricing) — photos load, text/buttons legible, no console errors, no
-  layout regressions elsewhere on each page.
+  layout regressions elsewhere on each page. Re-verified the same way
+  against production (`www.mokman.com`) after deploy — all three
+  images return `200`, all four pages match the local build with no
+  console errors.
 
 ## Local development
 

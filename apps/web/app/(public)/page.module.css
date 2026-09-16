@@ -36,7 +36,7 @@
 .heroSection {
   background:
     linear-gradient(to bottom, rgba(5, 15, 10, 0.72), rgba(5, 15, 10, 0.85)),
-    url("/images/hero-house.jpg") center / cover no-repeat;
+    url("/images/luxury-house-pool.jpg") center / cover no-repeat;
   padding: var(--space-8) var(--space-6) 6rem;
 }
 
