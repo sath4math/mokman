@@ -102,6 +102,27 @@ class MaintenanceTicket(Base, TimestampMixin):
     )
 
 
+class ServiceCategory(Base, TimestampMixin):
+    """An admin-managed reference entry for a ticket `category` string.
+
+    Additive, not enforced: `MaintenanceTicket.category` stays free-text.
+    A category with no matching row here behaves exactly as before this
+    model existed (MEDIUM priority, PRIORITY_SLA_HOURS-only SLA). A match
+    only ever supplies defaults/gates, never forces every category
+    through this catalog.
+    """
+
+    __tablename__ = "service_categories"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    default_priority: Mapped[TicketPriority] = mapped_column(
+        str_enum_column(TicketPriority, "ticket_priority"), default=TicketPriority.MEDIUM
+    )
+    estimated_completion_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class ChecklistTemplate(Base, TimestampMixin):
     """An admin-managed SOP checklist, one per ticket category.
 

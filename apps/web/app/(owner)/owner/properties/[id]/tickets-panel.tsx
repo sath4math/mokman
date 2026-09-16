@@ -3,23 +3,29 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import type { MaintenanceTicket } from "@/lib/types";
+import type { MaintenanceTicket, ServiceCategory } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./tickets-panel.module.css";
 
-const CATEGORIES = ["plumbing", "electrical", "appliance", "structural", "pest_control", "other"];
+const FALLBACK_CATEGORIES = ["plumbing", "electrical", "appliance", "structural", "pest_control", "other"];
 const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 export function TicketsPanel({
   propertyId,
   initialTickets,
+  serviceCategories,
 }: {
   propertyId: string;
   initialTickets: MaintenanceTicket[];
+  serviceCategories: ServiceCategory[];
 }) {
   const [tickets, setTickets] = useState(initialTickets);
-  const [draft, setDraft] = useState({ category: CATEGORIES[0], description: "", priority: "medium" as string });
+  const categoryOptions =
+    serviceCategories.length > 0
+      ? [...new Set([...serviceCategories.map((c) => c.name), "other"])]
+      : FALLBACK_CATEGORIES;
+  const [draft, setDraft] = useState({ category: categoryOptions[0], description: "", priority: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -35,7 +41,7 @@ export function TicketsPanel({
           property_id: propertyId,
           category: draft.category,
           description: draft.description,
-          priority: draft.priority,
+          ...(draft.priority ? { priority: draft.priority } : {}),
         }),
       });
       const data = await response.json();
@@ -44,7 +50,7 @@ export function TicketsPanel({
         return;
       }
       setTickets((prev) => [data, ...prev]);
-      setDraft({ category: CATEGORIES[0], description: "", priority: "medium" });
+      setDraft({ category: categoryOptions[0], description: "", priority: "" });
     } finally {
       setBusy(false);
     }
@@ -81,7 +87,7 @@ export function TicketsPanel({
             value={draft.category}
             onChange={(e) => setDraft((prev) => ({ ...prev, category: e.target.value }))}
           >
-            {CATEGORIES.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -95,6 +101,7 @@ export function TicketsPanel({
             value={draft.priority}
             onChange={(e) => setDraft((prev) => ({ ...prev, priority: e.target.value }))}
           >
+            <option value="">Auto (based on category)</option>
             {PRIORITIES.map((p) => (
               <option key={p} value={p}>
                 {p}

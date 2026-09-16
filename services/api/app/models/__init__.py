@@ -10,6 +10,7 @@ from app.models.maintenance import (
     ChecklistTemplate,
     MaintenanceSchedule,
     MaintenanceTicket,
+    ServiceCategory,
     TicketPriority,
     TicketStatus,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "Role",
     "RoleAssignment",
     "Room",
+    "ServiceCategory",
     "StorageUnit",
     "TenantProfile",
     "TenantVerificationStatus",

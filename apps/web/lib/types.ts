@@ -227,6 +227,14 @@ export interface ChecklistTemplate {
   is_active: boolean;
 }
 
+export interface ServiceCategory {
+  id: string;
+  name: string;
+  default_priority: TicketPriority;
+  estimated_completion_hours: number | null;
+  is_active: boolean;
+}
+
 export interface FieldStaffUser {
   id: string;
   full_name: string | null;

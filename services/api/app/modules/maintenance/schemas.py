@@ -10,7 +10,7 @@ class TicketCreate(BaseModel):
     property_id: uuid.UUID
     category: str
     description: str
-    priority: TicketPriority = TicketPriority.MEDIUM
+    priority: TicketPriority | None = None
 
 
 class AssignRequest(BaseModel):
@@ -63,6 +63,28 @@ class ChecklistItemUpdate(BaseModel):
 
 class CloseRequest(BaseModel):
     warranty_days: int | None = None
+
+
+class ServiceCategoryIn(BaseModel):
+    name: str
+    default_priority: TicketPriority = TicketPriority.MEDIUM
+    estimated_completion_hours: int | None = None
+
+
+class ServiceCategoryUpdate(BaseModel):
+    default_priority: TicketPriority | None = None
+    estimated_completion_hours: int | None = None
+    is_active: bool | None = None
+
+
+class ServiceCategoryOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    default_priority: TicketPriority
+    estimated_completion_hours: int | None
+    is_active: bool
+
+    model_config = {"from_attributes": True}
 
 
 class MaintenanceSummaryOut(BaseModel):

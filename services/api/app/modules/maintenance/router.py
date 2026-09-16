@@ -19,6 +19,9 @@ from app.modules.maintenance.schemas import (
     FieldStaffOut,
     MaintenanceSummaryOut,
     ResolveRequest,
+    ServiceCategoryIn,
+    ServiceCategoryOut,
+    ServiceCategoryUpdate,
     SlaCheckResult,
     StartRequest,
     TicketCreate,
@@ -34,11 +37,14 @@ from app.modules.maintenance.service import (
     NoChecklistError,
     NotPartyToTicketError,
     NotPropertyOwnerError,
+    ServiceCategoryInactiveError,
+    ServiceCategoryNotFoundError,
     TicketNotFoundError,
     approve_ticket,
     assign_ticket,
     close_ticket,
     create_checklist_template,
+    create_service_category,
     create_ticket,
     diagnose_ticket,
     estimate_ticket,
@@ -46,6 +52,7 @@ from app.modules.maintenance.service import (
     get_ticket,
     list_checklist_templates,
     list_field_staff,
+    list_service_categories,
     list_tickets,
     reject_estimate_ticket,
     reopen_ticket,
@@ -55,6 +62,7 @@ from app.modules.maintenance.service import (
     start_ticket,
     update_checklist_item,
     update_checklist_template,
+    update_service_category,
 )
 from app.modules.properties.service import (
     PropertyNotFoundError,
@@ -80,6 +88,10 @@ def create(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
     except NotPartyToInspectionError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this property") from None
+    except ServiceCategoryInactiveError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="This service category is not currently offered"
+        ) from None
     return TicketOut.model_validate(ticket)
 
 
@@ -157,6 +169,45 @@ def update_template(
     except ChecklistTemplateNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checklist template not found") from None
     return ChecklistTemplateOut.model_validate(template)
+
+
+@router.post("/service-categories", response_model=ServiceCategoryOut, status_code=status.HTTP_201_CREATED)
+def create_category(
+    data: ServiceCategoryIn,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ServiceCategoryOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    return ServiceCategoryOut.model_validate(create_service_category(db, data))
+
+
+@router.get("/service-categories", response_model=list[ServiceCategoryOut])
+def list_categories(
+    active_only: bool = False,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ServiceCategoryOut]:
+    # Open to any authenticated role, unlike checklist-templates/vendors —
+    # tenants raise tickets too and need this to populate their own
+    # category picker.
+    return [ServiceCategoryOut.model_validate(c) for c in list_service_categories(db, active_only)]
+
+
+@router.patch("/service-categories/{category_id}", response_model=ServiceCategoryOut)
+def update_category(
+    category_id: uuid.UUID,
+    data: ServiceCategoryUpdate,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ServiceCategoryOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    try:
+        category = update_service_category(db, category_id, data)
+    except ServiceCategoryNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service category not found") from None
+    return ServiceCategoryOut.model_validate(category)
 
 
 @router.post("/tickets/{ticket_id}/checklist-item", response_model=TicketOut)

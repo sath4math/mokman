@@ -35,6 +35,11 @@ export default async function AdminOverviewPage() {
           Manage checklist templates →
         </Link>
       </p>
+      <p className={styles.linkRow}>
+        <Link href="/admin/service-categories" className={ui.linkPrimary}>
+          Manage service categories →
+        </Link>
+      </p>
     </>
   );
 }

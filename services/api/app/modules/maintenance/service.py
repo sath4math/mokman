@@ -9,6 +9,7 @@ from app.models.expense import Expense
 from app.models.maintenance import (
     ChecklistTemplate,
     MaintenanceTicket,
+    ServiceCategory,
     TicketPriority,
     TicketStatus,
 )
@@ -24,6 +25,8 @@ from app.modules.maintenance.schemas import (
     ChecklistTemplateUpdate,
     MaintenanceSummaryOut,
     ResolveRequest,
+    ServiceCategoryIn,
+    ServiceCategoryUpdate,
     TicketCreate,
 )
 from app.modules.properties.service import PropertyNotFoundError
@@ -78,17 +81,40 @@ class MissingEvidenceError(Exception):
     pass
 
 
+class ServiceCategoryNotFoundError(Exception):
+    pass
+
+
+class ServiceCategoryInactiveError(Exception):
+    pass
+
+
 def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> MaintenanceTicket:
     verify_property_access(db, data.property_id, user_id)
+
+    service_category = db.execute(
+        select(ServiceCategory).where(ServiceCategory.name == data.category)
+    ).scalar_one_or_none()
+    if service_category is not None and not service_category.is_active:
+        raise ServiceCategoryInactiveError
+
+    priority = data.priority
+    if priority is None:
+        priority = service_category.default_priority if service_category else TicketPriority.MEDIUM
+
+    if service_category is not None and service_category.estimated_completion_hours is not None:
+        sla_hours = service_category.estimated_completion_hours
+    else:
+        sla_hours = PRIORITY_SLA_HOURS[priority]
 
     now = datetime.now(UTC)
     ticket = MaintenanceTicket(
         property_id=data.property_id,
         category=data.category,
         description=data.description,
-        priority=data.priority,
+        priority=priority,
         raised_by=user_id,
-        sla_due_at=now + timedelta(hours=PRIORITY_SLA_HOURS[data.priority]),
+        sla_due_at=now + timedelta(hours=sla_hours),
     )
 
     # Repeat-failure detection: a prior closed ticket on the same
@@ -301,6 +327,34 @@ def update_checklist_template(
     db.commit()
     db.refresh(template)
     return template
+
+
+def create_service_category(db: Session, data: ServiceCategoryIn) -> ServiceCategory:
+    category = ServiceCategory(**data.model_dump())
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    return category
+
+
+def list_service_categories(db: Session, active_only: bool) -> list[ServiceCategory]:
+    stmt = select(ServiceCategory)
+    if active_only:
+        stmt = stmt.where(ServiceCategory.is_active.is_(True))
+    return list(db.execute(stmt.order_by(ServiceCategory.name)).scalars())
+
+
+def update_service_category(
+    db: Session, category_id: uuid.UUID, data: ServiceCategoryUpdate
+) -> ServiceCategory:
+    category = db.get(ServiceCategory, category_id)
+    if category is None:
+        raise ServiceCategoryNotFoundError
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(category, field, value)
+    db.commit()
+    db.refresh(category)
+    return category
 
 
 def update_checklist_item(

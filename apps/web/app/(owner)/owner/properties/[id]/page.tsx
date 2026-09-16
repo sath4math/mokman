@@ -14,6 +14,7 @@ import type {
   MaintenanceTicket,
   Property,
   PropertyStatement,
+  ServiceCategory,
   UtilityConnection,
 } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
@@ -46,6 +47,7 @@ export default async function PropertyDetailPage({
     utilityConnections,
     complianceDues,
     inspections,
+    serviceCategories,
   ] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
@@ -57,6 +59,7 @@ export default async function PropertyDetailPage({
     backendFetch<UtilityConnection[]>(`/utilities/connections?property_id=${id}`),
     backendFetch<ComplianceDue[]>(`/compliance/dues?property_id=${id}`),
     backendFetch<Inspection[]>(`/inspections?property_id=${id}`),
+    backendFetch<ServiceCategory[]>("/maintenance/service-categories?active_only=true"),
   ]);
 
   if (!property) notFound();
@@ -152,7 +155,11 @@ export default async function PropertyDetailPage({
 
       <ExpensesPanel propertyId={property.id} initialExpenses={expenses ?? []} />
 
-      <TicketsPanel propertyId={property.id} initialTickets={tickets ?? []} />
+      <TicketsPanel
+        propertyId={property.id}
+        initialTickets={tickets ?? []}
+        serviceCategories={serviceCategories ?? []}
+      />
 
       <PreventiveMaintenancePanel propertyId={property.id} initialSchedules={schedules ?? []} />
 

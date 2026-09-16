@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { Lease, MaintenanceTicket, Property } from "@/lib/types";
+import type { Lease, MaintenanceTicket, Property, ServiceCategory } from "@/lib/types";
 
 import styles from "./tickets.module.css";
 import { TenantTicketsPanel } from "./tenant-tickets-panel";
@@ -11,9 +11,10 @@ export default async function TenantTicketsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [leases, tickets] = await Promise.all([
+  const [leases, tickets, serviceCategories] = await Promise.all([
     backendFetch<Lease[]>("/leases"),
     backendFetch<MaintenanceTicket[]>("/maintenance/tickets"),
+    backendFetch<ServiceCategory[]>("/maintenance/service-categories?active_only=true"),
   ]);
 
   const activeLeases = (leases ?? []).filter(
@@ -30,7 +31,11 @@ export default async function TenantTicketsPage() {
   return (
     <main className={styles.main}>
       <h1 className={styles.title}>Maintenance</h1>
-      <TenantTicketsPanel properties={properties} initialTickets={tickets ?? []} />
+      <TenantTicketsPanel
+        properties={properties}
+        initialTickets={tickets ?? []}
+        serviceCategories={serviceCategories ?? []}
+      />
     </main>
   );
 }
