@@ -406,7 +406,7 @@ catalog) builds on top of.
   `/reject-estimate` present in `openapi.json`) — route-existence
   verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 5b — Quality Control: checklists, check-in/out, evidence, rework (implemented, verified locally — not yet deployed)
+### 🧱 Phase 5b — Quality Control: checklists, check-in/out, evidence, rework (deployed; owner+tenant flows not yet re-verified in prod)
 Continues Phase 5's sequential-slice split. This covers the
 "in-the-moment, per-job" half of the doc's quality-control bullet:
 **SOPs/checklists, technician check-in/out, before/after evidence,
@@ -459,9 +459,58 @@ lifecycle, reuse aggressively."
   page-load snapshot of documents, not a live count — if evidence is
   uploaded without a page refresh the hint won't update, but the actual
   resolve call still re-checks live and enforces correctly regardless.
+- **Deployed.** Verified against local Postgres end-to-end (see bullets
+  above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed
+  to `main` and confirmed live in prod (checklist-template routes present
+  in `openapi.json`, `/admin/checklist-templates` resolving) —
+  route-existence verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 5c — Warranty, Repeat-Failure Tracking, Cost-Variance Reporting (implemented, verified locally — not yet deployed)
+Final slice of Phase 5's quality-control bullet. 5a and 5b extended the
+ticket lifecycle with zero new infrastructure; 5c is a different kind of
+build — the doc's own technical note says repeat-failure and
+cost-variance tracking *"need historical queries across the ticket/
+service data... plan reporting/analytics tables here."* Consistent with
+every prior phase's proportionate-slice approach, "reporting tables"
+here means **aggregate queries against existing tables**, the same
+approach Phase 3's `GET /finance/statement` already uses — not a new
+analytics subsystem.
+- **One deliberate un-deferral**: 4b's plan explicitly left `Expense`
+  with no FK to `MaintenanceTicket` ("no hard FK... this pass").
+  Cost-variance can't be computed without linking an expense to the
+  ticket it pays for, so this slice adds `Expense.ticket_id` now that
+  there's a real need for it.
+- **Warranty**: `close_ticket` gained an optional `warranty_days`,
+  computing `warranty_expires_on` (same field name/type as 4c's
+  `MaintenanceSchedule.warranty_expires_on`) — verified closing with
+  `warranty_days: 90` sets the date correctly.
+- **Repeat-failure detection is tied to warranty, not an arbitrary
+  day-count constant.** At ticket creation, a prior **closed** ticket on
+  the same property+category with an still-active warranty
+  auto-flags the new ticket `is_repeat_failure` with `related_ticket_id`
+  set — verified this fires correctly for a matching category and
+  (critically) does *not* fire for a different category on the same
+  property. No warranty set on the prior job means it never fires —
+  optional, same principle as every gate in 5a/5b.
+- **Cost-variance report**: new `GET /maintenance/reports/summary`
+  (property-scoped for owners, owner-aggregate or admin-global when
+  `property_id` is omitted — mirrors `/finance/statement`'s exact
+  owner-vs-property split, reusing `get_owned_property`/
+  `list_properties_for_owner` from `properties/service.py`). Verified at
+  all three scopes; critically, `total_actual_cost` correctly counted
+  *only* the one expense explicitly linked via `ticket_id` out of many
+  unlinked historical expenses already sitting on the same test
+  property, confirming the join is precise rather than double-counting.
+- **No frontend UI in this slice** — backend/reporting only, by design
+  (unlike every other phase). `apps/web/lib/types.ts` was still kept in
+  sync with the new fields (zero UI consumes them yet) to avoid type
+  drift.
 - **Not yet deployed.** Verified against local Postgres end-to-end (see
-  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
-  `build`.
+  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Phase 5 status**: this closes the quality-control bullet (5a-5c),
+  but not all of Phase 5 — managed-service request intake
+  (auto-categorization/eligibility/estimated completion) and the full
+  service-category catalog are still open as a natural 5d.
 
 ## Local development
 
