@@ -46,6 +46,20 @@ export interface Property {
   num_units: number | null;
   amenities: string[] | null;
   furnishing_status: string | null;
+  purchase_price: number | null;
+  current_market_value: number | null;
+}
+
+export interface InvestmentSummary {
+  property_id: string;
+  property_name: string;
+  purchase_price: number | null;
+  current_market_value: number | null;
+  appreciation_percentage: number | null;
+  trailing_12_month_rent_income: number;
+  gross_yield_percentage: number | null;
+  total_net_income_all_time: number;
+  roi_percentage: number | null;
 }
 
 export interface PropertyHealthScore {

@@ -11,6 +11,7 @@ import type {
   Expense,
   Inspection,
   InsurancePolicy,
+  InvestmentSummary,
   Lease,
   MaintenanceSchedule,
   MaintenanceTicket,
@@ -28,6 +29,7 @@ import { CompliancePanel } from "./compliance-panel";
 import { ExpensesPanel } from "./expenses-panel";
 import { InspectionsPanel } from "./inspections-panel";
 import { InsurancePanel } from "./insurance-panel";
+import { InvestmentPanel } from "./investment-panel";
 import { PreventiveMaintenancePanel } from "./preventive-maintenance-panel";
 import styles from "./property-detail.module.css";
 import { RenovationPanel } from "./renovation-panel";
@@ -59,6 +61,7 @@ export default async function PropertyDetailPage({
     assets,
     insurancePolicies,
     renovationProjects,
+    investmentSummary,
   ] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
@@ -75,6 +78,7 @@ export default async function PropertyDetailPage({
     backendFetch<Asset[]>(`/assets?property_id=${id}`),
     backendFetch<InsurancePolicy[]>(`/insurance/policies?property_id=${id}`),
     backendFetch<RenovationProject[]>(`/renovation/projects?property_id=${id}`),
+    backendFetch<InvestmentSummary>(`/properties/${id}/investment-summary`),
   ]);
 
   if (!property) notFound();
@@ -210,6 +214,8 @@ export default async function PropertyDetailPage({
       <InsurancePanel propertyId={property.id} initialPolicies={insurancePolicies ?? []} />
 
       <RenovationPanel propertyId={property.id} initialProjects={renovationProjects ?? []} />
+
+      <InvestmentPanel propertyId={property.id} initialSummary={investmentSummary ?? null} />
 
       <DocumentVault
         ownerType="property"

@@ -5,6 +5,7 @@ import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
 import type {
   ExpenseAnomaly,
+  InvestmentSummary,
   PropertyProfitability,
   RecurringProblem,
   RentEscalationProjection,
@@ -13,16 +14,22 @@ import ui from "@/styles/ui.module.css";
 
 import styles from "./insights.module.css";
 
+function formatPercent(value: number | null): string {
+  return value == null ? "—" : `${value.toFixed(1)}%`;
+}
+
 export default async function OwnerInsightsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [profitability, anomalies, recurringProblems, escalationProjections] = await Promise.all([
-    backendFetch<PropertyProfitability[]>("/finance/profitability"),
-    backendFetch<ExpenseAnomaly[]>("/finance/anomalies"),
-    backendFetch<RecurringProblem[]>("/maintenance/reports/recurring-problems"),
-    backendFetch<RentEscalationProjection[]>("/rent/escalation-projections"),
-  ]);
+  const [profitability, anomalies, recurringProblems, escalationProjections, investmentPortfolio] =
+    await Promise.all([
+      backendFetch<PropertyProfitability[]>("/finance/profitability"),
+      backendFetch<ExpenseAnomaly[]>("/finance/anomalies"),
+      backendFetch<RecurringProblem[]>("/maintenance/reports/recurring-problems"),
+      backendFetch<RentEscalationProjection[]>("/rent/escalation-projections"),
+      backendFetch<InvestmentSummary[]>("/properties/investment-portfolio"),
+    ]);
 
   return (
     <main className={styles.main}>
@@ -99,6 +106,26 @@ export default async function OwnerInsightsPage() {
           ))}
           {(!escalationProjections || escalationProjections.length === 0) && (
             <p className={ui.mutedText}>No upcoming escalations on active leases.</p>
+          )}
+        </ul>
+      </section>
+
+      <section className={styles.section}>
+        <h2 className={ui.badge}>Investment portfolio</h2>
+        <ul className={styles.list}>
+          {(investmentPortfolio ?? []).map((s) => (
+            <li key={s.property_id} className={styles.item}>
+              <div className={styles.itemInfo}>
+                <span>{s.property_name}</span>
+                <span className={ui.faintText}>
+                  Yield {formatPercent(s.gross_yield_percentage)} · Appreciation{" "}
+                  {formatPercent(s.appreciation_percentage)} · ROI {formatPercent(s.roi_percentage)}
+                </span>
+              </div>
+            </li>
+          ))}
+          {(!investmentPortfolio || investmentPortfolio.length === 0) && (
+            <p className={ui.mutedText}>No properties yet.</p>
           )}
         </ul>
       </section>

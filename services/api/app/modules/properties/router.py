@@ -7,6 +7,7 @@ from app.database import get_db
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.inspections.service import NotPartyToInspectionError, verify_property_access
 from app.modules.properties.schemas import (
+    InvestmentSummaryOut,
     PropertyCreate,
     PropertyHealthScoreOut,
     PropertyOut,
@@ -15,10 +16,12 @@ from app.modules.properties.schemas import (
 from app.modules.properties.service import (
     PropertyNotFoundError,
     compute_health_score,
+    compute_investment_summary,
     create_property,
     get_owned_property,
     get_property_by_id,
     list_all_properties,
+    list_investment_summaries,
     list_properties_for_owner,
     update_property,
 )
@@ -49,6 +52,14 @@ def list_mine(
         return [PropertyOut.model_validate(p) for p in list_all_properties(db)]
     _require_owner(current)
     return [PropertyOut.model_validate(p) for p in list_properties_for_owner(db, current.user.id)]
+
+
+@router.get("/investment-portfolio", response_model=list[InvestmentSummaryOut])
+def investment_portfolio(
+    current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[InvestmentSummaryOut]:
+    _require_owner(current)
+    return list_investment_summaries(db, current.user.id)
 
 
 @router.get("/{property_id}", response_model=PropertyOut)
@@ -100,3 +111,20 @@ def health_score(
     except PropertyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
     return compute_health_score(db, property_id)
+
+
+@router.get("/{property_id}/investment-summary", response_model=InvestmentSummaryOut)
+def investment_summary(
+    property_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> InvestmentSummaryOut:
+    try:
+        if current.role == "admin":
+            get_property_by_id(db, property_id)
+        else:
+            _require_owner(current)
+            get_owned_property(db, current.user.id, property_id)
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    return compute_investment_summary(db, property_id)

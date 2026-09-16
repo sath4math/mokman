@@ -45,6 +45,12 @@ class Property(Base, TimestampMixin):
     amenities: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
     furnishing_status: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
+    # Cost basis for Phase 8c's investment-intelligence metrics
+    # (yield/appreciation/ROI) -- both nullable, every metric derived
+    # from them is None until an owner sets them.
+    purchase_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_market_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+
 
 class Building(Base, TimestampMixin):
     __tablename__ = "buildings"

@@ -20,7 +20,11 @@ from app.modules.finance.service import default_year_month, get_owner_statement
 from app.modules.inspections.service import get_inspection
 from app.modules.inspections.service import require_party as require_inspection_party
 from app.modules.maintenance.service import list_tickets
-from app.modules.properties.service import list_properties_for_owner
+from app.modules.properties.service import (
+    compute_investment_summary,
+    get_owned_property,
+    list_properties_for_owner,
+)
 from app.modules.rent.service import recompute_invoice_status
 
 _OWNER_SYSTEM_PROMPT = (
@@ -42,6 +46,15 @@ _DAMAGE_ANALYSIS_PROMPT = (
     "you observe per photo. If both a before_photo and an after_photo are "
     "present, explicitly compare them. If nothing concerning is visible, say "
     "so plainly instead of inventing an issue. Keep the analysis concise."
+)
+
+_INVESTMENT_RECOMMENDATION_PROMPT = (
+    "You are the Mokman Investment Assistant. Give a brief, advisory "
+    "hold-or-consider-selling opinion for this property using ONLY the "
+    "numbers given below. This is not financial advice -- say so, and "
+    "recommend the owner consult a professional before acting. If "
+    "purchase_price or current_market_value is missing, say the numbers "
+    "aren't complete enough to opine rather than guessing. Keep it concise."
 )
 
 _LOOKAHEAD_DAYS = 30
@@ -179,3 +192,19 @@ def analyze_inspection_photos(db: Session, user_id: uuid.UUID, inspection_id: uu
 
     content.append({"type": "text", "text": "Analyze the photos above."})
     return ask_claude(_DAMAGE_ANALYSIS_PROMPT, content)
+
+
+def recommend_sell_or_hold(db: Session, owner_id: uuid.UUID, property_id: uuid.UUID) -> str:
+    get_owned_property(db, owner_id, property_id)
+    summary = compute_investment_summary(db, property_id)
+
+    lines = [
+        f"Purchase price: {summary.purchase_price}",
+        f"Current market value: {summary.current_market_value}",
+        f"Appreciation: {summary.appreciation_percentage}%",
+        f"Trailing 12-month rent income: {summary.trailing_12_month_rent_income}",
+        f"Gross yield: {summary.gross_yield_percentage}%",
+        f"All-time net income: {summary.total_net_income_all_time}",
+        f"ROI: {summary.roi_percentage}%",
+    ]
+    return ask_claude(_INVESTMENT_RECOMMENDATION_PROMPT, "\n".join(lines))

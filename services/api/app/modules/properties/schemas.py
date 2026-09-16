@@ -19,6 +19,8 @@ class PropertyCreate(BaseModel):
     num_units: int | None = None
     amenities: list[str] | None = None
     furnishing_status: str | None = None
+    purchase_price: float | None = None
+    current_market_value: float | None = None
 
 
 class PropertyUpdate(BaseModel):
@@ -29,6 +31,8 @@ class PropertyUpdate(BaseModel):
     num_units: int | None = None
     amenities: list[str] | None = None
     furnishing_status: str | None = None
+    purchase_price: float | None = None
+    current_market_value: float | None = None
 
 
 class PropertyOut(PropertyCreate):
@@ -46,3 +50,15 @@ class PropertyHealthScoreOut(BaseModel):
     sla_breached_tickets: int
     overdue_pm_items: int
     overdue_inspection_followups: int
+
+
+class InvestmentSummaryOut(BaseModel):
+    property_id: uuid.UUID
+    property_name: str
+    purchase_price: float | None
+    current_market_value: float | None
+    appreciation_percentage: float | None
+    trailing_12_month_rent_income: float
+    gross_yield_percentage: float | None
+    total_net_income_all_time: float
+    roi_percentage: float | None

@@ -13,6 +13,7 @@ from app.modules.assistant.service import (
     analyze_inspection_photos,
     ask_about_document,
     ask_owner_assistant,
+    recommend_sell_or_hold,
 )
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.documents.service import DocumentNotFoundError, UnsupportedDocumentOwnerTypeError
@@ -104,6 +105,23 @@ def analyze_inspection(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="No analyzable photos attached to this inspection"
         ) from None
+    except AssistantNotConfiguredError:
+        raise _not_configured() from None
+    return AssistantAskOut(answer=answer)
+
+
+@router.post("/properties/{property_id}/investment-recommendation", response_model=AssistantAskOut)
+def investment_recommendation(
+    property_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AssistantAskOut:
+    if current.role != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner role required")
+    try:
+        answer = recommend_sell_or_hold(db, current.user.id, property_id)
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
     except AssistantNotConfiguredError:
         raise _not_configured() from None
     return AssistantAskOut(answer=answer)

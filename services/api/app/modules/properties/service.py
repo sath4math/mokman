@@ -1,13 +1,21 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.inspection import Inspection
+from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.maintenance import MaintenanceSchedule, MaintenanceTicket, TicketStatus
 from app.models.property import Property
-from app.modules.properties.schemas import PropertyCreate, PropertyHealthScoreOut, PropertyUpdate
+from app.modules.properties.schemas import (
+    InvestmentSummaryOut,
+    PropertyCreate,
+    PropertyHealthScoreOut,
+    PropertyUpdate,
+)
+
+_INVESTMENT_TRAILING_DAYS = 365
 
 # Phase 7b: a deterministic 0-100 score, not a trained/ML prediction --
 # capped deductions per signal so no single ticket-heavy property can
@@ -118,3 +126,59 @@ def compute_health_score(db: Session, property_id: uuid.UUID) -> PropertyHealthS
         overdue_pm_items=overdue_pm_items,
         overdue_inspection_followups=overdue_inspection_followups,
     )
+
+
+def compute_investment_summary(db: Session, property_id: uuid.UUID) -> InvestmentSummaryOut:
+    """Deterministic formulas over Property.purchase_price/
+    current_market_value plus the existing ledger -- no ML, every
+    metric is None when an input it needs is missing (Phase 8c)."""
+    property_ = get_property_by_id(db, property_id)
+    cutoff = datetime.now(UTC) - timedelta(days=_INVESTMENT_TRAILING_DAYS)
+
+    trailing_12_month_rent_income = db.execute(
+        select(func.coalesce(func.sum(LedgerEntry.amount), 0.0)).where(
+            LedgerEntry.property_id == property_id,
+            LedgerEntry.entry_type == LedgerEntryType.RENT_PAYMENT,
+            LedgerEntry.occurred_at >= cutoff,
+        )
+    ).scalar_one()
+
+    all_time_totals: dict[LedgerEntryType, float] = {}
+    for entry_type in (LedgerEntryType.RENT_PAYMENT, LedgerEntryType.EXPENSE, LedgerEntryType.MOKMAN_FEE):
+        all_time_totals[entry_type] = db.execute(
+            select(func.coalesce(func.sum(LedgerEntry.amount), 0.0)).where(
+                LedgerEntry.property_id == property_id, LedgerEntry.entry_type == entry_type
+            )
+        ).scalar_one()
+    total_net_income_all_time = (
+        all_time_totals[LedgerEntryType.RENT_PAYMENT]
+        - all_time_totals[LedgerEntryType.EXPENSE]
+        - all_time_totals[LedgerEntryType.MOKMAN_FEE]
+    )
+
+    purchase_price = property_.purchase_price
+    current_market_value = property_.current_market_value
+
+    appreciation_percentage = None
+    roi_percentage = None
+    if purchase_price and current_market_value is not None:
+        appreciation_percentage = (current_market_value - purchase_price) / purchase_price * 100
+        roi_percentage = (current_market_value - purchase_price + total_net_income_all_time) / purchase_price * 100
+
+    gross_yield_percentage = trailing_12_month_rent_income / purchase_price * 100 if purchase_price else None
+
+    return InvestmentSummaryOut(
+        property_id=property_id,
+        property_name=property_.name,
+        purchase_price=purchase_price,
+        current_market_value=current_market_value,
+        appreciation_percentage=appreciation_percentage,
+        trailing_12_month_rent_income=trailing_12_month_rent_income,
+        gross_yield_percentage=gross_yield_percentage,
+        total_net_income_all_time=total_net_income_all_time,
+        roi_percentage=roi_percentage,
+    )
+
+
+def list_investment_summaries(db: Session, owner_id: uuid.UUID) -> list[InvestmentSummaryOut]:
+    return [compute_investment_summary(db, p.id) for p in list_properties_for_owner(db, owner_id)]
