@@ -41,6 +41,10 @@ class InvalidTicketTransitionError(Exception):
     pass
 
 
+class NotPropertyOwnerError(Exception):
+    pass
+
+
 def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> MaintenanceTicket:
     verify_property_access(db, data.property_id, user_id)
 
@@ -139,6 +143,91 @@ def _require_owner_or_admin(db: Session, ticket: MaintenanceTicket, user_id: uui
         raise NotPartyToTicketError
 
 
+def diagnose_ticket(
+    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, diagnosis_notes: str
+) -> MaintenanceTicket:
+    ticket = get_ticket(db, ticket_id)
+    _require_owner_or_admin(db, ticket, user_id, role)
+
+    if ticket.status != TicketStatus.OPEN:
+        raise InvalidTicketTransitionError
+
+    ticket.status = TicketStatus.DIAGNOSED
+    ticket.diagnosis_notes = diagnosis_notes
+    ticket.diagnosed_at = datetime.now(UTC)
+    ticket.diagnosed_by = user_id
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
+def estimate_ticket(
+    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, estimated_cost: float
+) -> MaintenanceTicket:
+    ticket = get_ticket(db, ticket_id)
+    _require_owner_or_admin(db, ticket, user_id, role)
+
+    if ticket.status != TicketStatus.DIAGNOSED:
+        raise InvalidTicketTransitionError
+
+    now = datetime.now(UTC)
+    ticket.estimated_cost = estimated_cost
+    ticket.estimated_at = now
+    ticket.estimated_by = user_id
+
+    property_ = db.get(Property, ticket.property_id)
+    is_owner_of_property = role == "owner" and property_ is not None and property_.owner_id == user_id
+    if is_owner_of_property:
+        # No one else to approve from — the owner quoting their own
+        # ticket is self-evidently approved, same as create_expense's
+        # owner-auto-approve branch.
+        ticket.status = TicketStatus.APPROVED
+        ticket.approved_at = now
+        ticket.approved_by = user_id
+    else:
+        ticket.status = TicketStatus.ESTIMATED
+
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
+def _require_property_owner(db: Session, ticket: MaintenanceTicket, user_id: uuid.UUID) -> None:
+    property_ = db.get(Property, ticket.property_id)
+    if property_ is None:
+        raise PropertyNotFoundError
+    if property_.owner_id != user_id:
+        raise NotPropertyOwnerError
+
+
+def approve_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str) -> MaintenanceTicket:
+    ticket = get_ticket(db, ticket_id)
+    _require_property_owner(db, ticket, user_id)
+
+    if ticket.status != TicketStatus.ESTIMATED:
+        raise InvalidTicketTransitionError
+
+    ticket.status = TicketStatus.APPROVED
+    ticket.approved_at = datetime.now(UTC)
+    ticket.approved_by = user_id
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
+def reject_estimate_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str) -> MaintenanceTicket:
+    ticket = get_ticket(db, ticket_id)
+    _require_property_owner(db, ticket, user_id)
+
+    if ticket.status != TicketStatus.ESTIMATED:
+        raise InvalidTicketTransitionError
+
+    ticket.status = TicketStatus.OPEN
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
 def assign_ticket(
     db: Session,
     ticket_id: uuid.UUID,
@@ -150,7 +239,7 @@ def assign_ticket(
     ticket = get_ticket(db, ticket_id)
     _require_owner_or_admin(db, ticket, user_id, role)
 
-    if ticket.status not in (TicketStatus.OPEN, TicketStatus.ASSIGNED):
+    if ticket.status not in (TicketStatus.OPEN, TicketStatus.APPROVED, TicketStatus.ASSIGNED):
         raise InvalidTicketTransitionError
     if (assigned_to is None) == (assigned_vendor_id is None):
         raise InvalidAssigneeError

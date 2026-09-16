@@ -172,7 +172,15 @@ export interface Expense {
   vendor_id: string | null;
 }
 
-export type TicketStatus = "open" | "assigned" | "in_progress" | "resolved" | "closed";
+export type TicketStatus =
+  | "open"
+  | "diagnosed"
+  | "estimated"
+  | "approved"
+  | "assigned"
+  | "in_progress"
+  | "resolved"
+  | "closed";
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 
 export interface MaintenanceTicket {
@@ -190,6 +198,14 @@ export interface MaintenanceTicket {
   created_at: string;
   sla_due_at: string | null;
   sla_breached_at: string | null;
+  diagnosis_notes: string | null;
+  diagnosed_at: string | null;
+  diagnosed_by: string | null;
+  estimated_cost: number | null;
+  estimated_at: string | null;
+  estimated_by: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
 }
 
 export interface FieldStaffUser {

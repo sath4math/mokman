@@ -9,6 +9,8 @@ from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.inspections.service import NotPartyToInspectionError
 from app.modules.maintenance.schemas import (
     AssignRequest,
+    DiagnoseRequest,
+    EstimateRequest,
     FieldStaffOut,
     ResolveRequest,
     SlaCheckResult,
@@ -19,13 +21,18 @@ from app.modules.maintenance.service import (
     InvalidAssigneeError,
     InvalidTicketTransitionError,
     NotPartyToTicketError,
+    NotPropertyOwnerError,
     TicketNotFoundError,
+    approve_ticket,
     assign_ticket,
     close_ticket,
     create_ticket,
+    diagnose_ticket,
+    estimate_ticket,
     get_ticket,
     list_field_staff,
     list_tickets,
+    reject_estimate_ticket,
     reopen_ticket,
     require_ticket_access,
     resolve_ticket,
@@ -92,6 +99,92 @@ def read(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except NotPartyToTicketError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
+    return TicketOut.model_validate(ticket)
+
+
+@router.post("/tickets/{ticket_id}/diagnose", response_model=TicketOut)
+def diagnose(
+    ticket_id: uuid.UUID,
+    data: DiagnoseRequest,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketOut:
+    try:
+        ticket = diagnose_ticket(db, ticket_id, current.user.id, current.role, data.diagnosis_notes)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required") from None
+    except InvalidTicketTransitionError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Ticket must be open to record a diagnosis"
+        ) from None
+    return TicketOut.model_validate(ticket)
+
+
+@router.post("/tickets/{ticket_id}/estimate", response_model=TicketOut)
+def estimate(
+    ticket_id: uuid.UUID,
+    data: EstimateRequest,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketOut:
+    try:
+        ticket = estimate_ticket(db, ticket_id, current.user.id, current.role, data.estimated_cost)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required") from None
+    except InvalidTicketTransitionError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Ticket must be diagnosed before estimating"
+        ) from None
+    return TicketOut.model_validate(ticket)
+
+
+@router.post("/tickets/{ticket_id}/approve", response_model=TicketOut)
+def approve(
+    ticket_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketOut:
+    try:
+        ticket = approve_ticket(db, ticket_id, current.user.id, current.role)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPropertyOwnerError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the property owner can approve") from None
+    except InvalidTicketTransitionError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Ticket must have a pending estimate to approve"
+        ) from None
+    return TicketOut.model_validate(ticket)
+
+
+@router.post("/tickets/{ticket_id}/reject-estimate", response_model=TicketOut)
+def reject_estimate(
+    ticket_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketOut:
+    try:
+        ticket = reject_estimate_ticket(db, ticket_id, current.user.id, current.role)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPropertyOwnerError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the property owner can reject") from None
+    except InvalidTicketTransitionError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Ticket must have a pending estimate to reject"
+        ) from None
     return TicketOut.model_validate(ticket)
 
 

@@ -45,6 +45,8 @@ export function TicketDetail({
   const [inspectionDate, setInspectionDate] = useState("");
   const [inspectionScheduled, setInspectionScheduled] = useState(false);
   const [queued, setQueued] = useState(false);
+  const [diagnosisNotes, setDiagnosisNotes] = useState("");
+  const [estimatedCost, setEstimatedCost] = useState("");
 
   const isManager = viewerRole === "owner" || viewerRole === "admin";
   const isAssignee = viewerRole === "field_staff" && ticket.assigned_to === viewerId;
@@ -97,6 +99,26 @@ export function TicketDetail({
     if (!resolutionNotes.trim()) return;
     await post("/resolve", { resolution_notes: resolutionNotes });
     setResolutionNotes("");
+  }
+
+  async function handleDiagnose() {
+    if (!diagnosisNotes.trim()) return;
+    await post("/diagnose", { diagnosis_notes: diagnosisNotes });
+    setDiagnosisNotes("");
+  }
+
+  async function handleEstimate() {
+    if (!estimatedCost) return;
+    await post("/estimate", { estimated_cost: Number(estimatedCost) });
+    setEstimatedCost("");
+  }
+
+  async function handleApprove() {
+    await post("/approve");
+  }
+
+  async function handleRejectEstimate() {
+    await post("/reject-estimate");
   }
 
   async function handleRate() {
@@ -161,6 +183,23 @@ export function TicketDetail({
           <p>{ticket.description}</p>
         </div>
 
+        {ticket.diagnosis_notes && (
+          <div className={styles.resolutionBlock}>
+            <div className={ui.faintText}>Diagnosis</div>
+            <p>{ticket.diagnosis_notes}</p>
+          </div>
+        )}
+
+        {ticket.estimated_cost != null && (
+          <div className={styles.resolutionBlock}>
+            <div className={ui.faintText}>Estimated cost</div>
+            <p>
+              {ticket.estimated_cost}
+              {ticket.approved_at ? " — approved" : ""}
+            </p>
+          </div>
+        )}
+
         {ticket.resolution_notes && (
           <div className={styles.resolutionBlock}>
             <div className={ui.faintText}>Resolution notes</div>
@@ -168,8 +207,63 @@ export function TicketDetail({
           </div>
         )}
 
+        {isManager && ticket.status === "open" && (
+          <div className={styles.resolveForm}>
+            <label className={ui.field}>
+              Diagnosis notes
+              <textarea
+                className={ui.textarea}
+                rows={2}
+                value={diagnosisNotes}
+                onChange={(e) => setDiagnosisNotes(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleDiagnose}
+              disabled={busy || !diagnosisNotes.trim()}
+              className={`${ui.btnSecondary} ${ui.btnSmall}`}
+            >
+              Record diagnosis
+            </button>
+          </div>
+        )}
+
+        {isManager && ticket.status === "diagnosed" && (
+          <div className={styles.resolveForm}>
+            <label className={ui.field}>
+              Estimated cost
+              <input
+                type="number"
+                className={ui.input}
+                value={estimatedCost}
+                onChange={(e) => setEstimatedCost(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={handleEstimate}
+              disabled={busy || !estimatedCost}
+              className={`${ui.btnSecondary} ${ui.btnSmall}`}
+            >
+              Submit estimate
+            </button>
+          </div>
+        )}
+
+        {viewerRole === "owner" && ticket.status === "estimated" && (
+          <div className={ui.flexRow}>
+            <button type="button" onClick={handleApprove} disabled={busy} className={ui.btnPrimary}>
+              Approve estimate
+            </button>
+            <button type="button" onClick={handleRejectEstimate} disabled={busy} className={ui.btnSecondary}>
+              Reject estimate
+            </button>
+          </div>
+        )}
+
         {isManager &&
-          (ticket.status === "open" || ticket.status === "assigned") &&
+          (ticket.status === "open" || ticket.status === "approved" || ticket.status === "assigned") &&
           (staffCandidates.length > 0 || vendorCandidates.length > 0) && (
             <div className={styles.assignRow}>
               <label className={ui.field}>

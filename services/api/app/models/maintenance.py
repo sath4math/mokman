@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,9 @@ from app.models.base import Base, TimestampMixin, str_enum_column, uuid_pk
 
 class TicketStatus(str, enum.Enum):
     OPEN = "open"
+    DIAGNOSED = "diagnosed"
+    ESTIMATED = "estimated"
+    APPROVED = "approved"
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
@@ -27,12 +30,14 @@ class TicketPriority(str, enum.Enum):
 class MaintenanceTicket(Base, TimestampMixin):
     """A maintenance complaint, from raising through closure.
 
-    States are deliberately simplified from the full doc's
-    Complaint->Assessment->Diagnosis->Estimate->Approval->Assignment->
-    Work->Inspection->Invoice->Closure chain: open -> assigned ->
-    in_progress -> resolved -> closed (+ reopen from closed). Cost
-    tracking reuses the Phase 3 Expense/ledger system rather than a
-    parallel estimate-approval pipeline.
+    States: open -> [diagnosed -> estimated -> approved] -> assigned ->
+    in_progress -> resolved -> closed (+ reopen from closed). The
+    diagnosed/estimated/approved chain (Phase 5a) is optional, not
+    mandatory — assignment still accepts a ticket straight from `open`
+    for simple jobs that don't need a cost gate; `estimated_cost` is an
+    informational quote gating assignment, not a financial transaction.
+    Cost tracking still reuses the Phase 3 Expense/ledger system
+    post-hoc rather than a parallel accounting pipeline.
     """
 
     __tablename__ = "maintenance_tickets"
@@ -56,6 +61,15 @@ class MaintenanceTicket(Base, TimestampMixin):
     )
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    diagnosis_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    diagnosed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    diagnosed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    estimated_cost: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estimated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    estimated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
     # sla_due_at is set once at creation from PRIORITY_SLA_HOURS and never
     # recomputed; sla_breached_at is set once by the cron-triggered

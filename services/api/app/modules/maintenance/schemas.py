@@ -22,6 +22,14 @@ class ResolveRequest(BaseModel):
     resolution_notes: str
 
 
+class DiagnoseRequest(BaseModel):
+    diagnosis_notes: str
+
+
+class EstimateRequest(BaseModel):
+    estimated_cost: float
+
+
 class TicketOut(BaseModel):
     id: uuid.UUID
     property_id: uuid.UUID
@@ -37,6 +45,14 @@ class TicketOut(BaseModel):
     created_at: datetime
     sla_due_at: datetime | None
     sla_breached_at: datetime | None
+    diagnosis_notes: str | None
+    diagnosed_at: datetime | None
+    diagnosed_by: uuid.UUID | None
+    estimated_cost: float | None
+    estimated_at: datetime | None
+    estimated_by: uuid.UUID | None
+    approved_at: datetime | None
+    approved_by: uuid.UUID | None
 
     model_config = {"from_attributes": True}
 
