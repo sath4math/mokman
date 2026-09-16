@@ -868,7 +868,7 @@ Assistant depends on).
   since 4b, **plus** the live-answer-quality gap above, which is
   specific to this phase and still open.
 
-### 🧱 Phase 7b — Property Health Score + Financial Intelligence Summary (implemented, verified locally — not yet deployed)
+### 🧱 Phase 7b — Property Health Score + Financial Intelligence Summary (deployed; owner+tenant flows not yet re-verified in prod)
 Of what's left in Phase 7 after 7a — Predictive Maintenance, AI Rent
 Intelligence, and the forecasting parts of AI Financial Intelligence —
 each still hits the doc's "depends entirely on data volume" wall
@@ -932,7 +932,102 @@ recommendation.
   `net_payable`; anomaly detection correctly caught a real duplicate
   pair and (at a realistic sample size) a genuine outlier. Plus local
   `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/finance/profitability`/`/finance/anomalies`/
+  `/properties/{id}/health-score` present in `openapi.json`,
+  `/owner/insights` resolving) — route-existence verification only,
+  same gap as every phase since 4b.
+
+### 🧱 Phase 7c — Recurring Problems, Rent Escalation Projection, AI Damage Photo Analysis (implemented, verified locally — not yet deployed)
+The user asked to scope 7c and close out Phase 7 entirely. Two of the
+doc's remaining bullets are architecturally blocked, not just
+deprioritized: market rent estimation / locality trends need an
+external real-estate data source that's never been integrated anywhere
+in this codebase (no vendor decision made — same category as the OTP
+SMS/email providers still marked "fill in during vendor selection" in
+`.env.example`), and vacancy-risk/renewal-probability need a
+property-status change history that was never logged (`Property.status`
+is a current value, not a timeline). No amount of proportionate scoping
+fixes a missing data source. The user chose to build the three pieces
+that are genuinely reachable and formally close the rest, rather than
+pretending predictive/rent-intelligence work got done.
+- **Recurring-problem detection, extended** (`GET
+  /maintenance/reports/recurring-problems`): 5c's `is_repeat_failure`
+  only fires within an active warranty window; this is warranty-blind
+  — ≥3 tickets in the same category on the same property within a
+  trailing 180 days, using existing ticket data only. Same owner/admin
+  scoping helper as `/reports/summary`, extracted into
+  `_resolve_report_scope` for reuse across both. No volume dependency:
+  sparse data correctly reports few/no recurring problems, the honest
+  current-state answer.
+- **Rent escalation projection** (`GET /rent/escalation-projections`):
+  `Lease.annual_escalation_percentage` and its exact compounding
+  formula already existed (`rent/service.py`'s
+  `_amount_for_period`/`_period_index_for`, used only for invoicing
+  until now) but nothing surfaced "what will this lease cost after its
+  next escalation." Pure projection from existing fields, no AI.
+  Verified the math exactly: a lease with `monthly_rent=10000`,
+  `annual_escalation_percentage=10`, started 13 months ago, projected
+  `current_rent: 11000` and `projected_rent: 12100` at the correct
+  next-anniversary date.
+- **AI Inspection/Damage Photo Analysis** (`POST
+  /assistant/inspections/{id}/analyze`): the most genuinely AI-ready
+  piece left in Phase 7, since it reasons about one inspection's photos
+  at a time and needs no historical volume at all. Reuses 7a's exact
+  Claude-vision infrastructure (a new shared `_document_content_block`
+  helper in `app/modules/assistant/service.py`, factored out of 7a's
+  `ask_about_document`) against an inspection's photos — using Claude's
+  vision here is precisely the doc's own suggested "vendor CV API
+  before custom models" approach.
+- **Real gap found during exploration, fixed alongside the feature**:
+  there was no frontend surface to upload or view photos against an
+  `Inspection` at all — `InspectionsPanel` had no `DocumentVault`, even
+  though the backend document API has supported
+  `owner_type="inspection"` since Phase 2. Without fixing this, the new
+  analysis endpoint would have had nothing to ever analyze. Each
+  inspection row now expands to a `DocumentVault` plus an "Analyze
+  photos" action.
+- **Formally closed, not deferred hoping to revisit soon** (see
+  Phase 7 completion note below for the full list and reasons).
+- **Verified against local Postgres end-to-end**: recurring-problem
+  detection correctly flagged 3 same-category/same-property tickets
+  and correctly excluded a 4th backdated outside the 180-day window;
+  escalation projection matched the existing formula exactly (see
+  above), returned nothing for a lease with no escalation percentage
+  or a non-active lease; damage analysis correctly 400s with no photos
+  attached, reaches the LLM boundary (503, same as 7a, after a real
+  R2 fetch of an uploaded test photo) with photos attached, and 403s
+  for a user who isn't a party to the inspection. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
+
+### ✅ Phase 7 — AI and Property Intelligence: core scope complete (7a-7c)
+The AI Owner Assistant, AI Document Assistant, Property Health Score,
+Financial Intelligence Summary (profitability + anomalies), recurring-
+problem detection, rent escalation projection, and AI Damage Photo
+Analysis are all built. **Formally out of scope, not silently
+deferred**, each for a specific reason:
+- **Market rent estimation, locality trends** — need an external
+  real-estate/comps data source; no vendor has been integrated or
+  chosen anywhere in this codebase (same category as the OTP SMS/email
+  providers left as placeholders in `.env.example` since Phase 1).
+- **Vacancy-risk, renewal-probability** — need a `Property` status
+  change history; `Property.status` has only ever been a current value,
+  never logged as a timeline, since Phase 1.
+- **True ML-based failure prediction, replacement-risk-by-asset-age**
+  — need asset install-date data that's never been collected, and the
+  real usage/failure history the doc's own technical note says this
+  entire phase depends on, which this system (still only test data)
+  doesn't have.
+- **Inventory mismatch detection** — needs a structured inventory
+  model; inspections only ever stored a free-form `checklist` JSONB
+  and `notes`, no itemized inventory list.
+- **Cash-flow forecasting** — same insufficient month-over-month
+  history as 7b's yield/ROI cut; extrapolating from a few weeks of
+  test data wouldn't be honest.
+- **Live answer-quality verification for 7a/7c's LLM-backed
+  features** remains open pending a real `ANTHROPIC_API_KEY` — the
+  standing gap called out in 7a, unaffected by this completion marker.
 
 ## Local development
 
