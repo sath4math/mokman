@@ -27,6 +27,13 @@
   color: var(--color-primary);
 }
 
+.logoMark {
+  height: 32px;
+  width: 32px;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
 .nav {
   display: none;
   align-items: center;

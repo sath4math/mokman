@@ -1335,6 +1335,17 @@ watermark doesn't establish a free license.
   against production (`www.mokman.com`) after deploy — all three
   images return `200`, all four pages match the local build with no
   console errors.
+- **Site logo added**: `mokman_logo.png` (a supplied brand asset, not
+  Unsplash-sourced) moved from the repo root to
+  `apps/web/public/mokman-logo.png` — public root, alongside the other
+  standalone brand icons (`field-icon-192.png`/`512.png`), not
+  `public/images/` which is reserved for the Unsplash content photos
+  above. Replaces the generic `IconHouse` mark in the public header
+  (`app/(public)/layout.tsx`) next to the "Mokman" wordmark.
+  Verified in both light and dark mode (`prefers-color-scheme`) via
+  Playwright — the logo's own opaque white background reads as a
+  clean rounded badge against the dark header rather than clashing,
+  so no image editing was needed despite this app's dark-mode support.
 
 ## Local development
 

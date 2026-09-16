@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { IconHouse } from "@/components/icons";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./layout.module.css";
@@ -44,7 +43,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link href="/" className={styles.logo}>
-            <IconHouse size={24} />
+            <img src="/mokman-logo.png" alt="" className={styles.logoMark} />
             Mokman
           </Link>
           <nav className={styles.nav}>
