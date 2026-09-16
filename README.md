@@ -136,7 +136,7 @@ it's split: this pass is ticketing only.
 - Same known verification gap as Phase 3: field-staff/admin production
   login isn't re-verified here either (owner+tenant flows are).
 
-### 🧱 Phase 4b — Vendor Operations (implemented, verified locally — not yet deployed)
+### 🧱 Phase 4b — Vendor Operations (deployed; owner+tenant flows not yet re-verified in prod)
 Core vendor loop only, cut down from the full doc scope the same way
 4a cut ticketing from all of Phase 4.
 - `Vendor`: standalone directory entity (`app/models/vendor.py`), **not**
@@ -163,14 +163,84 @@ Core vendor loop only, cut down from the full doc scope the same way
   everything already deferred from 4a (utility management,
   society/government coordination, preventive maintenance, SLA
   automation, Inspection-model formalization).
-- **Not yet deployed.** Verified against local Postgres end-to-end
-  (vendor CRUD, ticket-assignment validation including the
-  exactly-one-assignee rule and inactive-vendor rejection, a
-  vendor-linked expense flowing through approval → ledger → finance
-  statement) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
-  Not yet pushed to `main`, so there's no prod verification to report
-  — once it is, expect the same admin/field-staff prod-login
-  verification gap noted under Phase 3.
+- **Deployed.** Verified against local Postgres end-to-end (vendor CRUD,
+  ticket-assignment validation including the exactly-one-assignee rule
+  and inactive-vendor rejection, a vendor-linked expense flowing through
+  approval → ledger → finance statement) plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed to `main` and
+  confirmed live in prod (`/vendors` in the API's `openapi.json`,
+  `/admin/vendors` resolving) — but that's route-existence verification
+  only, not a full authenticated owner/tenant walkthrough in prod like
+  earlier phases got, on top of the standing admin/field-staff
+  prod-login gap noted under Phase 3.
+
+### 🧱 Phase 4c — Vendor Polish + Preventive Maintenance + Utility Management + Society/Govt Coordination (implemented, verified locally — not yet deployed)
+4a and 4b each cut Phase 4's full scope down to one proportionate slice.
+Four items remained: vendor-ops polish, preventive maintenance, utility
+management, and society/government coordination. I recommended keeping
+those as four more sequential sub-phases (same cadence as 4a→4b) since
+bundling them reintroduces the size/risk problem that caused the
+original split — the user explicitly chose to bundle all four into one
+4c instead. The discipline that changed as a result: proportionate-slice
+thinking still applies *within* each of the four areas, just not *across*
+them anymore.
+- **Vendor ops polish** (extends 4b's `app/modules/vendors/`):
+  `VendorRateCard` (nested CRUD, `/vendors/{id}/rate-cards` — reference
+  pricing only, not auto-applied to an `Expense` amount) and
+  `VendorRating` (`POST /vendors/{id}/ratings`, validates the ticket is
+  `closed` and assigned to that vendor; `VendorOut.average_rating`
+  computed on read, not stored). Blacklisting is now a real workflow —
+  `POST /vendors/{id}/blacklist|reinstate` require/record a reason via
+  the **existing** generic `AuditLog` table (`GET /vendors/{id}/history`
+  reads it back) — `is_active` is no longer settable through the plain
+  `PATCH`, so every deactivation has a reason on record.
+- **Preventive maintenance**: new `MaintenanceSchedule`
+  (`app/modules/maintenance_schedules/`) with a *stored* `next_due_on`
+  (recomputed on `log-service`, unlike `RentInvoice`'s per-read status —
+  it only changes when a service is logged). No scheduler, no
+  auto-generated tickets: due items are a read-only list
+  (`?due_only=true`); acting on one is a manual
+  `POST /maintenance/tickets` via the existing flow.
+- **Utility management**: new `UtilityConnection` + `UtilityBill`
+  (`app/modules/utilities/`). `responsibility` (owner/tenant) records who
+  *should* pay; `paid_at` is administrative record-keeping only —
+  **deliberately not wired to the ledger**, since "who's responsible" and
+  "what the owner's ledger owes" are different questions this pass
+  doesn't try to auto-reconcile (verified: marking a bill paid left the
+  finance statement untouched). No consumption-alert automation, same
+  "needs a real scheduler" reasoning already applied to SLA automation.
+- **Society/government coordination**: new `ComplianceDue`
+  (`app/modules/compliance/`) covers both society dues and government
+  tax tracking with one model — they're structurally identical per the
+  doc's own grouping. Notices and NOCs aren't a new model at all: they
+  reuse the **existing** document vault (`owner_type="property"`, new
+  `document_type` values `"noc"`/`"society_notice"`/`"tax_receipt"`) —
+  verified an upload against a real property with zero document-module
+  code changes.
+- All four owner-facing surfaces are new panels on the owner property
+  detail page (`apps/web/app/(owner)/owner/properties/[id]/page.tsx`),
+  matching its existing `expenses-panel`/`tickets-panel` composition
+  pattern. **Scope cut from the plan during implementation**: no separate
+  `/admin`-side screens for preventive maintenance/utilities — admin
+  already manages tickets/expenses via global lists, not per-property
+  panels, and these three domains are inherently property-scoped, so a
+  new "admin browses one property's ops" surface would have been its own
+  feature, not a proportionate add-on here.
+- Deferred to a later phase: vendor self-service login/portal,
+  auto-generating tickets from a due schedule, consumption alerts or any
+  notification/scheduled-job infrastructure, auto-posting utility/
+  compliance payments to the ledger, SLA automation, and the Phase 2
+  `Inspection` model's ticket-triggered formalization.
+- **Not yet deployed.** Verified against local Postgres end-to-end (rate
+  cards, a rating produced against a closed vendor-assigned ticket
+  yielding a nonzero `average_rating`, blacklist→reinstate producing two
+  `AuditLog` rows with the reason intact, a maintenance schedule's
+  `next_due_on` recomputing after `log-service` and showing up in
+  `due_only`, a utility bill markable paid without touching the ledger, a
+  compliance due markable paid, and a NOC uploaded via the existing
+  document vault) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
+  `build`. Once deployed, expect the same prod-verification gaps noted
+  above for 4b.
 
 ## Local development
 
