@@ -34,7 +34,9 @@
 
 /* Hero */
 .heroSection {
-  background: linear-gradient(to bottom, var(--color-primary-soft), var(--color-bg));
+  background:
+    linear-gradient(to bottom, rgba(5, 15, 10, 0.72), rgba(5, 15, 10, 0.85)),
+    url("/images/hero-house.jpg") center / cover no-repeat;
   padding: var(--space-8) var(--space-6) 6rem;
 }
 
@@ -53,6 +55,7 @@
   font-size: 2.25rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  color: #ffffff;
 }
 
 @media (min-width: 640px) {
@@ -62,13 +65,13 @@
 }
 
 .heroHighlight {
-  color: var(--color-primary);
+  color: #6ee7b7;
 }
 
 .heroSubtitle {
   max-width: 36rem;
   font-size: 1.125rem;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .heroActions {
@@ -81,13 +84,19 @@
 
 .heroTrust {
   font-size: 0.875rem;
-  color: var(--color-text-faint);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .secondaryAction {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.secondaryAction:hover {
+  border-color: rgba(255, 255, 255, 0.7);
 }
 
 /* Generic section rhythm */

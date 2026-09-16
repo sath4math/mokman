@@ -5,9 +5,11 @@ import styles from "./pricing.module.css";
 export default function PricingPage() {
   return (
     <main className={styles.main}>
-      <div>
-        <h1 className={styles.title}>Pricing</h1>
-        <p className={styles.subtitle}>Owner and Tenant packages, side by side.</p>
+      <div className={styles.banner}>
+        <div>
+          <h1 className={styles.title}>Pricing</h1>
+          <p className={styles.subtitle}>Owner and Tenant packages, side by side.</p>
+        </div>
       </div>
 
       <PackageTableView table={ownerPackages} title="Owner Packages" />

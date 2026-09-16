@@ -46,68 +46,70 @@ export default function RegisterPage() {
 
   return (
     <main className={formStyles.main}>
-      <h1 className={formStyles.title}>Create an account</h1>
-      <form onSubmit={handleSubmit} className={formStyles.form}>
-        <label className={ui.field}>
-          I am a
-          <select
-            value={role}
-            onChange={(event) => setRole(event.target.value as "owner" | "tenant")}
-            className={ui.select}
+      <div className={formStyles.card}>
+        <h1 className={formStyles.title}>Create an account</h1>
+        <form onSubmit={handleSubmit} className={formStyles.form}>
+          <label className={ui.field}>
+            I am a
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value as "owner" | "tenant")}
+              className={ui.select}
+            >
+              <option value="owner">Property Owner</option>
+              <option value="tenant">Tenant</option>
+            </select>
+          </label>
+          <label className={ui.field}>
+            Full name
+            <input
+              type="text"
+              required
+              autoComplete="name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              className={ui.input}
+            />
+          </label>
+          <label className={ui.field}>
+            Email
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={ui.input}
+            />
+          </label>
+          <label className={ui.field}>
+            Password
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={ui.input}
+            />
+          </label>
+          {error && <p className={ui.errorText}>{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className={`${ui.btnPrimary} ${formStyles.submitButton}`}
           >
-            <option value="owner">Property Owner</option>
-            <option value="tenant">Tenant</option>
-          </select>
-        </label>
-        <label className={ui.field}>
-          Full name
-          <input
-            type="text"
-            required
-            autoComplete="name"
-            value={fullName}
-            onChange={(event) => setFullName(event.target.value)}
-            className={ui.input}
-          />
-        </label>
-        <label className={ui.field}>
-          Email
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={ui.input}
-          />
-        </label>
-        <label className={ui.field}>
-          Password
-          <input
-            type="password"
-            required
-            minLength={8}
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className={ui.input}
-          />
-        </label>
-        {error && <p className={ui.errorText}>{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className={`${ui.btnPrimary} ${formStyles.submitButton}`}
-        >
-          {submitting ? "Creating account…" : "Create account"}
-        </button>
-      </form>
-      <p className={formStyles.footer}>
-        Already have an account?{" "}
-        <Link href="/login" className={ui.linkPrimary}>
-          Log in
-        </Link>
-      </p>
+            {submitting ? "Creating account…" : "Create account"}
+          </button>
+        </form>
+        <p className={formStyles.footer}>
+          Already have an account?{" "}
+          <Link href="/login" className={ui.linkPrimary}>
+            Log in
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

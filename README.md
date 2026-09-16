@@ -1279,6 +1279,35 @@ are all built. **Formally out of scope, not silently deferred**:
   — is a cross-cutting i18n concern touching every monetary display in
   the frontend, not a proportionate single slice.
 
+### 🎨 Public pages — property photography (implemented, verified locally — not yet deployed)
+Not a phase-doc item — a follow-up visual-polish request after Phase 8
+completed. No AI image-generation tool/API is available in this
+environment, so real photography was substituted: sourced from
+Unsplash (free for commercial use, no attribution required) rather
+than scraping Google Images directly, since the absence of a visible
+watermark doesn't establish a free license.
+- Scoped to **public/marketing pages only** (confirmed with the
+  user): landing page hero, `/login` + `/register` (shared
+  `auth-form.module.css`), `/pricing` banner. Authenticated owner/
+  tenant/admin/field dashboards and the plain `/privacy`/`/terms`
+  pages are untouched.
+- Three property-relevant photos added under `apps/web/public/images/`
+  (`hero-house.jpg`, `cozy-living-room.jpg`,
+  `apartment-building.jpg`), applied via plain CSS
+  `background: linear-gradient(...), url(...) center / cover no-repeat;`
+  — no `next/image`, consistent with this app's CSS-Modules-only
+  convention.
+- Text/button colors on top of each photo were hardcoded to white/
+  near-white rather than left on the theme's dark `--color-text`
+  tokens — including a `.secondaryAction` override on the landing
+  hero, since that button shares `ui.module.css`'s `.btnSecondary`
+  (dark text by default) and would otherwise be unreadable against
+  the new dark photo background.
+- Verified via local `pnpm lint`/`typecheck`/`build` plus a Playwright
+  screenshot pass against all four pages (landing, login, register,
+  pricing) — photos load, text/buttons legible, no console errors, no
+  layout regressions elsewhere on each page.
+
 ## Local development
 
 ```powershell

@@ -56,45 +56,47 @@ function LoginForm() {
 
   return (
     <main className={formStyles.main}>
-      <h1 className={formStyles.title}>Log in</h1>
-      <form onSubmit={handleSubmit} className={formStyles.form}>
-        <label className={ui.field}>
-          Email
-          <input
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className={ui.input}
-          />
-        </label>
-        <label className={ui.field}>
-          Password
-          <input
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className={ui.input}
-          />
-        </label>
-        {error && <p className={ui.errorText}>{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className={`${ui.btnPrimary} ${formStyles.submitButton}`}
-        >
-          {submitting ? "Logging in…" : "Log in"}
-        </button>
-      </form>
-      <p className={formStyles.footer}>
-        New here?{" "}
-        <Link href="/register" className={ui.linkPrimary}>
-          Create an account
-        </Link>
-      </p>
+      <div className={formStyles.card}>
+        <h1 className={formStyles.title}>Log in</h1>
+        <form onSubmit={handleSubmit} className={formStyles.form}>
+          <label className={ui.field}>
+            Email
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={ui.input}
+            />
+          </label>
+          <label className={ui.field}>
+            Password
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className={ui.input}
+            />
+          </label>
+          {error && <p className={ui.errorText}>{error}</p>}
+          <button
+            type="submit"
+            disabled={submitting}
+            className={`${ui.btnPrimary} ${formStyles.submitButton}`}
+          >
+            {submitting ? "Logging in…" : "Log in"}
+          </button>
+        </form>
+        <p className={formStyles.footer}>
+          New here?{" "}
+          <Link href="/register" className={ui.linkPrimary}>
+            Create an account
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

@@ -10,14 +10,28 @@
   padding: var(--space-8) var(--space-6);
 }
 
+.banner {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 14rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background:
+    linear-gradient(to top, rgba(5, 15, 10, 0.8), rgba(5, 15, 10, 0.15)),
+    url("/images/apartment-building.jpg") center / cover no-repeat;
+  padding: var(--space-6);
+}
+
 .title {
   font-size: 1.875rem;
   font-weight: 600;
+  color: #ffffff;
 }
 
 .subtitle {
   margin-top: var(--space-2);
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .addOnsTitle {
