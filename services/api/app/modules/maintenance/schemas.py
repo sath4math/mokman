@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -61,6 +61,21 @@ class ChecklistItemUpdate(BaseModel):
     checked: bool
 
 
+class CloseRequest(BaseModel):
+    warranty_days: int | None = None
+
+
+class MaintenanceSummaryOut(BaseModel):
+    total_tickets: int
+    closed_tickets: int
+    repeat_failure_count: int
+    active_warranty_count: int
+    tickets_with_estimate: int
+    total_estimated_cost: float
+    total_actual_cost: float
+    cost_variance: float
+
+
 class TicketOut(BaseModel):
     id: uuid.UUID
     property_id: uuid.UUID
@@ -92,6 +107,9 @@ class TicketOut(BaseModel):
     check_out_latitude: float | None
     check_out_longitude: float | None
     rework_count: int
+    warranty_expires_on: date | None
+    is_repeat_failure: bool
+    related_ticket_id: uuid.UUID | None
 
     model_config = {"from_attributes": True}
 

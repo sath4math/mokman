@@ -13,9 +13,11 @@ from app.modules.maintenance.schemas import (
     ChecklistTemplateIn,
     ChecklistTemplateOut,
     ChecklistTemplateUpdate,
+    CloseRequest,
     DiagnoseRequest,
     EstimateRequest,
     FieldStaffOut,
+    MaintenanceSummaryOut,
     ResolveRequest,
     SlaCheckResult,
     StartRequest,
@@ -40,6 +42,7 @@ from app.modules.maintenance.service import (
     create_ticket,
     diagnose_ticket,
     estimate_ticket,
+    get_maintenance_summary,
     get_ticket,
     list_checklist_templates,
     list_field_staff,
@@ -53,7 +56,11 @@ from app.modules.maintenance.service import (
     update_checklist_item,
     update_checklist_template,
 )
-from app.modules.properties.service import PropertyNotFoundError
+from app.modules.properties.service import (
+    PropertyNotFoundError,
+    get_owned_property,
+    list_properties_for_owner,
+)
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 internal_router = APIRouter(prefix="/internal/maintenance", tags=["internal"])
@@ -352,11 +359,12 @@ def resolve(
 @router.post("/tickets/{ticket_id}/close", response_model=TicketOut)
 def close(
     ticket_id: uuid.UUID,
+    data: CloseRequest = CloseRequest(),
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TicketOut:
     try:
-        ticket = close_ticket(db, ticket_id, current.user.id, current.role)
+        ticket = close_ticket(db, ticket_id, current.user.id, current.role, data.warranty_days)
     except TicketNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except PropertyNotFoundError:
@@ -389,6 +397,31 @@ def reopen(
     except InvalidTicketTransitionError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a closed ticket can be reopened") from None
     return TicketOut.model_validate(ticket)
+
+
+@router.get("/reports/summary", response_model=MaintenanceSummaryOut)
+def maintenance_summary(
+    property_id: uuid.UUID | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MaintenanceSummaryOut:
+    if current.role not in ("owner", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required")
+
+    property_ids: list[uuid.UUID] | None
+    if property_id is not None:
+        if current.role == "owner":
+            try:
+                get_owned_property(db, current.user.id, property_id)
+            except PropertyNotFoundError:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+        property_ids = [property_id]
+    elif current.role == "owner":
+        property_ids = [p.id for p in list_properties_for_owner(db, current.user.id)]
+    else:
+        property_ids = None
+
+    return get_maintenance_summary(db, property_ids)
 
 
 @internal_router.post("/sla-check", response_model=SlaCheckResult)

@@ -91,6 +91,16 @@ class MaintenanceTicket(Base, TimestampMixin):
     check_out_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     rework_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Set optionally at close_ticket; a repeat within this window on the
+    # same property+category auto-flags the new ticket below. No warranty
+    # set on the prior job means repeat-failure detection never fires —
+    # optional, same as every other gate introduced in 5a/5b.
+    warranty_expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    is_repeat_failure: Mapped[bool] = mapped_column(Boolean, default=False)
+    related_ticket_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("maintenance_tickets.id"), nullable=True
+    )
+
 
 class ChecklistTemplate(Base, TimestampMixin):
     """An admin-managed SOP checklist, one per ticket category.

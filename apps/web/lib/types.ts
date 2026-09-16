@@ -170,6 +170,7 @@ export interface Expense {
   approved_by: string | null;
   approved_at: string | null;
   vendor_id: string | null;
+  ticket_id: string | null;
 }
 
 export type TicketStatus =
@@ -214,6 +215,9 @@ export interface MaintenanceTicket {
   check_out_latitude: number | null;
   check_out_longitude: number | null;
   rework_count: number;
+  warranty_expires_on: string | null;
+  is_repeat_failure: boolean;
+  related_ticket_id: string | null;
 }
 
 export interface ChecklistTemplate {

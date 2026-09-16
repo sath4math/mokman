@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
+from app.models.expense import Expense
 from app.models.maintenance import (
     ChecklistTemplate,
     MaintenanceTicket,
@@ -21,6 +22,7 @@ from app.modules.inspections.service import verify_property_access
 from app.modules.maintenance.schemas import (
     ChecklistTemplateIn,
     ChecklistTemplateUpdate,
+    MaintenanceSummaryOut,
     ResolveRequest,
     TicketCreate,
 )
@@ -88,6 +90,23 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
         raised_by=user_id,
         sla_due_at=now + timedelta(hours=PRIORITY_SLA_HOURS[data.priority]),
     )
+
+    # Repeat-failure detection: a prior closed ticket on the same
+    # property+category whose warranty is still active means this is
+    # likely the same issue recurring, not a new one.
+    prior = db.execute(
+        select(MaintenanceTicket)
+        .where(MaintenanceTicket.property_id == data.property_id)
+        .where(MaintenanceTicket.category == data.category)
+        .where(MaintenanceTicket.status == TicketStatus.CLOSED)
+        .where(MaintenanceTicket.warranty_expires_on.is_not(None))
+        .where(MaintenanceTicket.warranty_expires_on >= now.date())
+        .order_by(MaintenanceTicket.closed_at.desc())
+    ).scalars().first()
+    if prior is not None:
+        ticket.is_repeat_failure = True
+        ticket.related_ticket_id = prior.id
+
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
@@ -400,7 +419,9 @@ def resolve_ticket(
     return ticket
 
 
-def close_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str) -> MaintenanceTicket:
+def close_ticket(
+    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, warranty_days: int | None = None
+) -> MaintenanceTicket:
     ticket = get_ticket(db, ticket_id)
     _require_owner_or_admin(db, ticket, user_id, role)
 
@@ -409,6 +430,8 @@ def close_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: st
 
     ticket.status = TicketStatus.CLOSED
     ticket.closed_at = datetime.now(UTC)
+    if warranty_days is not None:
+        ticket.warranty_expires_on = ticket.closed_at.date() + timedelta(days=warranty_days)
     db.commit()
     db.refresh(ticket)
     return ticket
@@ -438,4 +461,41 @@ def list_field_staff(db: Session) -> list[User]:
             .join(Role, Role.id == RoleAssignment.role_id)
             .where(Role.name == "field_staff")
         ).scalars()
+    )
+
+
+def get_maintenance_summary(db: Session, property_ids: list[uuid.UUID] | None) -> MaintenanceSummaryOut:
+    """Aggregate ticket/cost stats for the reports endpoint.
+
+    `property_ids=None` means "all properties" (admin, no scope). Same
+    read-time-aggregation approach as finance/service.py's _summarize —
+    a report endpoint, not a new denormalized analytics table.
+    """
+    ticket_stmt = select(MaintenanceTicket)
+    if property_ids is not None:
+        ticket_stmt = ticket_stmt.where(MaintenanceTicket.property_id.in_(property_ids))
+    tickets = list(db.execute(ticket_stmt).scalars())
+
+    today = datetime.now(UTC).date()
+    with_estimate = [t for t in tickets if t.estimated_cost is not None]
+    total_estimated_cost = sum(t.estimated_cost for t in with_estimate if t.estimated_cost is not None)
+
+    ticket_ids = [t.id for t in tickets]
+    total_actual_cost = 0.0
+    if ticket_ids:
+        total_actual_cost = db.execute(
+            select(func.coalesce(func.sum(Expense.amount), 0.0)).where(Expense.ticket_id.in_(ticket_ids))
+        ).scalar_one()
+
+    return MaintenanceSummaryOut(
+        total_tickets=len(tickets),
+        closed_tickets=sum(1 for t in tickets if t.status == TicketStatus.CLOSED),
+        repeat_failure_count=sum(1 for t in tickets if t.is_repeat_failure),
+        active_warranty_count=sum(
+            1 for t in tickets if t.warranty_expires_on is not None and t.warranty_expires_on >= today
+        ),
+        tickets_with_estimate=len(with_estimate),
+        total_estimated_cost=total_estimated_cost,
+        total_actual_cost=total_actual_cost,
+        cost_variance=total_actual_cost - total_estimated_cost,
     )

@@ -42,6 +42,7 @@ def create_expense(db: Session, user_id: uuid.UUID, role: str, data: ExpenseCrea
         description=data.description,
         submitted_by=user_id,
         vendor_id=data.vendor_id,
+        ticket_id=data.ticket_id,
         status=ExpenseStatus.APPROVED if is_owner_of_property else ExpenseStatus.PENDING,
     )
     if is_owner_of_property:
