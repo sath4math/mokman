@@ -33,6 +33,7 @@ from app.modules.insurance.service import InsurancePolicyNotFoundError
 from app.modules.leases.service import LeaseNotFoundError, NotPartyToLeaseError
 from app.modules.maintenance.service import NotPartyToTicketError, TicketNotFoundError
 from app.modules.properties.service import PropertyNotFoundError
+from app.modules.renovation.service import ProjectNotFoundError
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -60,6 +61,8 @@ def _verify_ownership(db: Session, current: CurrentUser, owner_type: str, owner_
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found") from None
     except InsurancePolicyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found") from None
+    except ProjectNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found") from None
     except UnsupportedDocumentOwnerTypeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported owner_type: {owner_type}"

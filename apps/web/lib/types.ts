@@ -409,6 +409,33 @@ export interface InsuranceClaim {
   settled_at: string | null;
 }
 
+export type ProjectStatus = "requested" | "approved" | "in_progress" | "completed" | "cancelled";
+
+export interface RenovationProject {
+  id: string;
+  property_id: string;
+  title: string;
+  description: string | null;
+  vendor_id: string | null;
+  status: ProjectStatus;
+  budget_amount: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  completed_at: string | null;
+  warranty_expires_on: string | null;
+}
+
+export interface ProjectMilestone {
+  id: string;
+  project_id: string;
+  title: string;
+  due_date: string | null;
+  payment_amount: number;
+  completed_at: string | null;
+  paid_at: string | null;
+  expense_id: string | null;
+}
+
 export type UtilityResponsibility = "owner" | "tenant";
 
 export interface UtilityConnection {

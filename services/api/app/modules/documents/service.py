@@ -12,6 +12,7 @@ from app.modules.insurance.service import get_policy
 from app.modules.leases.service import get_lease
 from app.modules.leases.service import require_party as require_lease_party
 from app.modules.properties.service import get_owned_property
+from app.modules.renovation.service import get_project
 
 
 class DocumentNotFoundError(Exception):
@@ -52,6 +53,9 @@ def verify_document_access(db: Session, user_id: uuid.UUID, role: str, owner_typ
     elif owner_type == "insurance_policy":
         policy = get_policy(db, owner_id)
         get_owned_property(db, user_id, policy.property_id)
+    elif owner_type == "renovation_project":
+        project = get_project(db, owner_id)
+        get_owned_property(db, user_id, project.property_id)
     else:
         raise UnsupportedDocumentOwnerTypeError
 

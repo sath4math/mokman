@@ -39,6 +39,7 @@ from app.models.property import (
     Unit,
 )
 from app.models.rbac import Permission, Role, RoleAssignment
+from app.models.renovation import ProjectMilestone, ProjectStatus, RenovationProject
 from app.models.rent import InvoiceStatus, RentInvoice
 from app.models.tenant_profile import TenantProfile, TenantVerificationStatus
 from app.models.user import User
@@ -80,8 +81,11 @@ __all__ = [
     "OwnershipType",
     "ParkingSpot",
     "Permission",
+    "ProjectMilestone",
+    "ProjectStatus",
     "Property",
     "PropertyStatus",
+    "RenovationProject",
     "RentInvoice",
     "Role",
     "RoleAssignment",
