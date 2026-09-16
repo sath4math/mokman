@@ -5,11 +5,13 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
-from app.models.expense import Expense
+from app.models.expense import Expense, ExpenseStatus
+from app.models.ledger import LedgerEntryType
 from app.models.maintenance import (
     ChecklistTemplate,
     EligibilityOutcome,
     MaintenanceTicket,
+    MaterialUsage,
     ServiceCategory,
     ServiceEligibilityRule,
     TicketPriority,
@@ -22,11 +24,13 @@ from app.models.user import User
 from app.models.vendor import Vendor
 from app.modules.auth.service import get_user_role
 from app.modules.documents.service import list_documents
+from app.modules.finance.service import record_ledger_entry
 from app.modules.inspections.service import verify_property_access
 from app.modules.maintenance.schemas import (
     ChecklistTemplateIn,
     ChecklistTemplateUpdate,
     MaintenanceSummaryOut,
+    MaterialUsageIn,
     ResolveRequest,
     ServiceCategoryIn,
     ServiceCategoryUpdate,
@@ -600,6 +604,68 @@ def resolve_ticket(
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+def log_material_usage(
+    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, data: MaterialUsageIn
+) -> MaterialUsage:
+    ticket = get_ticket(db, ticket_id)
+    if role not in ("admin",) and ticket.assigned_to != user_id:
+        _require_owner_or_admin(db, ticket, user_id, role)
+
+    usage = MaterialUsage(
+        ticket_id=ticket.id,
+        item=data.item,
+        quantity=data.quantity,
+        unit_cost=data.unit_cost,
+        is_wastage=data.is_wastage,
+        logged_by=user_id,
+    )
+
+    # Wastage is never billed to the owner; an `included` ticket absorbs
+    # the cost under the owner's plan. Anything else (chargeable,
+    # third_party, out_of_scope, escalate, or no rule at all) bills it
+    # through the existing Expense/ledger pipeline (Phase 3/5c), the same
+    # auto-approved shape as create_expense's owner branch -- no new
+    # approval workflow, since the ticket already passed whatever gate
+    # it needed to reach in_progress.
+    if not data.is_wastage and ticket.eligibility_outcome != EligibilityOutcome.INCLUDED:
+        expense = Expense(
+            property_id=ticket.property_id,
+            category="materials",
+            amount=data.quantity * data.unit_cost,
+            description=data.item,
+            submitted_by=user_id,
+            vendor_id=ticket.assigned_vendor_id,
+            ticket_id=ticket.id,
+            status=ExpenseStatus.APPROVED,
+            approved_by=user_id,
+            approved_at=datetime.now(UTC),
+        )
+        db.add(expense)
+        db.flush()
+        record_ledger_entry(
+            db,
+            property_id=ticket.property_id,
+            entry_type=LedgerEntryType.EXPENSE,
+            amount=expense.amount,
+            recorded_by=user_id,
+            expense_id=expense.id,
+        )
+        usage.expense_id = expense.id
+
+    db.add(usage)
+    db.commit()
+    db.refresh(usage)
+    return usage
+
+
+def list_material_usage(db: Session, ticket_id: uuid.UUID) -> list[MaterialUsage]:
+    return list(
+        db.execute(
+            select(MaterialUsage).where(MaterialUsage.ticket_id == ticket_id).order_by(MaterialUsage.created_at)
+        ).scalars()
+    )
 
 
 def close_ticket(

@@ -18,6 +18,8 @@ from app.modules.maintenance.schemas import (
     EstimateRequest,
     FieldStaffOut,
     MaintenanceSummaryOut,
+    MaterialUsageIn,
+    MaterialUsageOut,
     ResolveRequest,
     ServiceCategoryIn,
     ServiceCategoryOut,
@@ -61,8 +63,10 @@ from app.modules.maintenance.service import (
     list_checklist_templates,
     list_eligibility_rules,
     list_field_staff,
+    list_material_usage,
     list_service_categories,
     list_tickets,
+    log_material_usage,
     reject_estimate_ticket,
     reopen_ticket,
     require_ticket_access,
@@ -477,6 +481,44 @@ def resolve(
             detail="An after_photo document must be uploaded before resolving",
         ) from None
     return TicketOut.model_validate(ticket)
+
+
+@router.post(
+    "/tickets/{ticket_id}/materials", response_model=MaterialUsageOut, status_code=status.HTTP_201_CREATED
+)
+def log_materials(
+    ticket_id: uuid.UUID,
+    data: MaterialUsageIn,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> MaterialUsageOut:
+    try:
+        usage = log_material_usage(db, ticket_id, current.user.id, current.role, data)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only the assignee, owner, or admin can log materials"
+        ) from None
+    return MaterialUsageOut.model_validate(usage)
+
+
+@router.get("/tickets/{ticket_id}/materials", response_model=list[MaterialUsageOut])
+def list_materials(
+    ticket_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[MaterialUsageOut]:
+    try:
+        ticket = get_ticket(db, ticket_id)
+        require_ticket_access(db, ticket, current.user.id, current.role)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
+    return [MaterialUsageOut.model_validate(m) for m in list_material_usage(db, ticket_id)]
 
 
 @router.post("/tickets/{ticket_id}/close", response_model=TicketOut)

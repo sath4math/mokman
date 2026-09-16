@@ -119,6 +119,27 @@ class ServiceEligibilityRuleOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MaterialUsageIn(BaseModel):
+    item: str
+    quantity: float
+    unit_cost: float
+    is_wastage: bool = False
+
+
+class MaterialUsageOut(BaseModel):
+    id: uuid.UUID
+    ticket_id: uuid.UUID
+    item: str
+    quantity: float
+    unit_cost: float
+    is_wastage: bool
+    logged_by: uuid.UUID
+    expense_id: uuid.UUID | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class MaintenanceSummaryOut(BaseModel):
     total_tickets: int
     closed_tickets: int

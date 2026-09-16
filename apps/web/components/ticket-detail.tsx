@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { DocumentVault } from "@/components/document-vault";
 import { enqueueAction } from "@/lib/offline-queue";
-import type { DocumentRecord, FieldStaffUser, MaintenanceTicket, Vendor } from "@/lib/types";
+import type { DocumentRecord, FieldStaffUser, MaintenanceTicket, MaterialUsage, Vendor } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./ticket-detail.module.css";
@@ -61,10 +61,24 @@ export function TicketDetail({
   const [queued, setQueued] = useState(false);
   const [diagnosisNotes, setDiagnosisNotes] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
+  const [materials, setMaterials] = useState<MaterialUsage[]>([]);
+  const [materialDraft, setMaterialDraft] = useState({ item: "", quantity: "", unitCost: "", isWastage: false });
 
   const isManager = viewerRole === "owner" || viewerRole === "admin";
   const isAssignee = viewerRole === "field_staff" && ticket.assigned_to === viewerId;
   const isRaiser = ticket.raised_by === viewerId;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/backend/maintenance/tickets/${ticket.id}/materials`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled) setMaterials(Array.isArray(data) ? data : []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket.id]);
 
   async function post(path: string, body?: object) {
     setError(null);
@@ -164,6 +178,33 @@ export function TicketDetail({
         return;
       }
       setRatingSubmitted(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLogMaterial() {
+    if (!materialDraft.item.trim() || !materialDraft.quantity || !materialDraft.unitCost) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/backend/maintenance/tickets/${ticket.id}/materials`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item: materialDraft.item,
+          quantity: Number(materialDraft.quantity),
+          unit_cost: Number(materialDraft.unitCost),
+          is_wastage: materialDraft.isWastage,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.detail ?? "Failed to log material");
+        return;
+      }
+      setMaterials((prev) => [...prev, data]);
+      setMaterialDraft({ item: "", quantity: "", unitCost: "", isWastage: false });
     } finally {
       setBusy(false);
     }
@@ -356,6 +397,66 @@ export function TicketDetail({
                 {item}
               </label>
             ))}
+          </div>
+        )}
+
+        {(materials.length > 0 || ((isAssignee || isManager) && ticket.status === "in_progress")) && (
+          <div className={styles.checklist}>
+            <div className={ui.faintText}>Materials used</div>
+            {materials.map((m) => (
+              <div key={m.id} className={ui.flexBetween}>
+                <span>
+                  {m.item} — {m.quantity} × {m.unit_cost} = {m.quantity * m.unit_cost}
+                </span>
+                {m.is_wastage && <span className={ui.badge}>wastage</span>}
+              </div>
+            ))}
+            {(isAssignee || isManager) && ticket.status === "in_progress" && (
+              <div className={styles.assignRow}>
+                <label className={ui.field}>
+                  Item
+                  <input
+                    className={ui.input}
+                    value={materialDraft.item}
+                    onChange={(e) => setMaterialDraft((prev) => ({ ...prev, item: e.target.value }))}
+                  />
+                </label>
+                <label className={ui.field}>
+                  Quantity
+                  <input
+                    type="number"
+                    className={ui.input}
+                    value={materialDraft.quantity}
+                    onChange={(e) => setMaterialDraft((prev) => ({ ...prev, quantity: e.target.value }))}
+                  />
+                </label>
+                <label className={ui.field}>
+                  Unit cost
+                  <input
+                    type="number"
+                    className={ui.input}
+                    value={materialDraft.unitCost}
+                    onChange={(e) => setMaterialDraft((prev) => ({ ...prev, unitCost: e.target.value }))}
+                  />
+                </label>
+                <label className={ui.field}>
+                  Wastage
+                  <input
+                    type="checkbox"
+                    checked={materialDraft.isWastage}
+                    onChange={(e) => setMaterialDraft((prev) => ({ ...prev, isWastage: e.target.checked }))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleLogMaterial}
+                  disabled={busy}
+                  className={`${ui.btnSecondary} ${ui.btnSmall}`}
+                >
+                  Log material
+                </button>
+              </div>
+            )}
           </div>
         )}
 

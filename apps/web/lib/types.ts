@@ -252,6 +252,18 @@ export interface ServiceEligibilityRule {
   max_value: number | null;
 }
 
+export interface MaterialUsage {
+  id: string;
+  ticket_id: string;
+  item: string;
+  quantity: number;
+  unit_cost: number;
+  is_wastage: boolean;
+  logged_by: string;
+  expense_id: string | null;
+  created_at: string;
+}
+
 export interface FieldStaffUser {
   id: string;
   full_name: string | null;

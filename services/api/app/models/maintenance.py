@@ -198,6 +198,32 @@ class ChecklistTemplate(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class MaterialUsage(Base, TimestampMixin):
+    """A material line item consumed against a ticket (Phase 6d).
+
+    Whether this line becomes a billable Expense is decided at log
+    time, not stored as its own flag: is_wastage never bills; otherwise
+    an `included` ticket absorbs the cost under the owner's plan (no
+    Expense), any other outcome (or no rule) bills it. expense_id is
+    set only in that last case.
+    """
+
+    __tablename__ = "material_usage"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    ticket_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("maintenance_tickets.id"), index=True
+    )
+    item: Mapped[str] = mapped_column(String(200))
+    quantity: Mapped[float] = mapped_column(Float)
+    unit_cost: Mapped[float] = mapped_column(Float)
+    is_wastage: Mapped[bool] = mapped_column(Boolean, default=False)
+    logged_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("expenses.id"), nullable=True
+    )
+
+
 class MaintenanceSchedule(Base, TimestampMixin):
     """A recurring preventive-maintenance item for a property/asset.
 
