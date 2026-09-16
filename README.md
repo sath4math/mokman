@@ -1034,7 +1034,7 @@ deferred**, each for a specific reason:
   features** remains open pending a real `ANTHROPIC_API_KEY` — the
   standing gap called out in 7a, unaffected by this completion marker.
 
-### 🧱 Phase 8a — Asset & Inventory Management + Insurance Management (implemented, verified locally — not yet deployed)
+### 🧱 Phase 8a — Asset & Inventory Management + Insurance Management (deployed; owner+tenant flows not yet re-verified in prod)
 Phase 8 ("Complete Property Lifecycle") is the broadest phase yet —
 seven sub-areas: Asset & Inventory, Renovation & Project Management,
 Smart Property/IoT, Insurance, NRI Property Management, Investment
@@ -1094,6 +1094,64 @@ due-date/paid-tracking shape.
   behavior the "property" branch already has); a ticket with `asset_id`
   set behaved identically otherwise; a filed-then-settled claim left
   the finance statement at zero activity. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/assets`, `/assets/{id}/replace`,
+  `/insurance/policies/{id}/claims` present in `openapi.json`,
+  property-scoped owner pages resolving) — route-existence
+  verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 8b — Renovation & Project Management (implemented, verified locally — not yet deployed)
+Confirmed sequencing with the user: 8b (Renovation) → 8c (Investment
+Intelligence) → 8d (Sale/Transfer/Exit), each its own cycle, closing
+out Phase 8's buildable scope. Smart Property/IoT stays formally
+blocked (hardware/vendor decision, same category as Phase 7's
+rent-intelligence data source). NRI Property Management gets a
+documentation-only pass later — most of it (PoA via
+`AuthorizedRepresentative` since Phase 1, "remote approvals" via this
+being a web app, "video inspections" via the Document vault already
+accepting any content-type) is already satisfied by existing
+infrastructure; the one genuinely new piece (currency display) is a
+cross-cutting i18n concern touching every monetary display in the
+frontend, not a proportionate single slice.
+- The doc's own technical note says this phase "overlaps significantly
+  with Phase 4/5's vendor and work-order infrastructure — reuse rather
+  than rebuild." Contractor assignment reuses the **existing** `Vendor`
+  directory (`app/models/vendor.py`) directly — no new vendor concept.
+  Procurement/warranty documentation reuses the existing Document
+  vault (new `"renovation_project"` `verify_document_access` branch,
+  same shape as 8a's `"asset"`/`"insurance_policy"` branches).
+- **Deliberate departure from 8a's insurance/compliance precedent**:
+  milestone *payments* reuse the **existing** Expense/ledger pipeline
+  directly — the exact same construction 6d's `log_material_usage`
+  billing branch already uses (`app/modules/maintenance/service.py`) —
+  rather than staying ledger-isolated like 8a's premiums/dues. A
+  renovation payment is a real operational cost the owner incurs right
+  now, structurally identical to the vendor invoices 4b already flows
+  through `Expense`; treating it as an administrative reminder the way
+  8a treated insurance would have been the wrong precedent to copy
+  here.
+- New `RenovationProject`/`ProjectMilestone` models
+  (`app/models/renovation.py`). Progress tracking is just the milestone
+  list (each with its own `completed_at`) plus the project's own
+  `status` — no separate progress-percentage field to keep in sync.
+  `status` updates via a plain unguarded `PATCH`, same simplicity
+  `InsuranceClaimUpdate` already uses (record-keeping, not a gated
+  workflow like `MaintenanceTicket`).
+- `pay_milestone` guards against double-payment
+  (`MilestoneAlreadyPaidError` → 409) — verified paying the same
+  milestone twice is rejected the second time.
+- New `RenovationPanel` (projects with nested, expandable milestones —
+  complete/pay actions) on the owner property detail page.
+- **Verified against local Postgres end-to-end**: a non-owner is
+  blocked creating a project (403) and accessing its documents (404,
+  matching `get_owned_property`'s existing behavior); the full
+  create-project → add-milestone → complete → pay flow correctly
+  produced an approved `Expense` (`category="renovation"`, correct
+  `vendor_id`/`amount`) and a matching ledger entry, with
+  `GET /finance/statement` for that property reflecting the new
+  expense exactly — the deliberate contrast with 8a's ledger-isolated
+  flows; paying an already-paid milestone correctly 409s. Plus local
   `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
 
