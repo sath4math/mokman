@@ -57,6 +57,13 @@ class MaintenanceTicket(Base, TimestampMixin):
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # sla_due_at is set once at creation from PRIORITY_SLA_HOURS and never
+    # recomputed; sla_breached_at is set once by the cron-triggered
+    # escalation check (POST /internal/maintenance/sla-check) and never
+    # cleared, same "write once" spirit as LedgerEntry.
+    sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sla_breached_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 
 class MaintenanceSchedule(Base, TimestampMixin):
     """A recurring preventive-maintenance item for a property/asset.

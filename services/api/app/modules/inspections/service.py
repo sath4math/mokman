@@ -76,6 +76,10 @@ def create_inspection(db: Session, user_id: uuid.UUID, data: InspectionCreate) -
         checklist=data.checklist,
         notes=data.notes,
         meter_readings=data.meter_readings,
+        scheduled_for=data.scheduled_for,
+        triggered_by_ticket_id=data.triggered_by_ticket_id,
+        follow_up_notes=data.follow_up_notes,
+        follow_up_due_on=data.follow_up_due_on,
     )
     db.add(inspection)
     db.commit()
@@ -84,11 +88,15 @@ def create_inspection(db: Session, user_id: uuid.UUID, data: InspectionCreate) -
 
 
 def list_inspections(
-    db: Session, property_id: uuid.UUID, lease_id: uuid.UUID | None
+    db: Session, property_id: uuid.UUID, lease_id: uuid.UUID | None, upcoming_only: bool = False
 ) -> list[Inspection]:
     stmt = select(Inspection).where(Inspection.property_id == property_id)
     if lease_id is not None:
         stmt = stmt.where(Inspection.lease_id == lease_id)
+    if upcoming_only:
+        stmt = stmt.where(Inspection.scheduled_for.is_not(None)).where(
+            Inspection.scheduled_for >= datetime.now(UTC).date()
+        )
     return list(db.execute(stmt).scalars())
 
 

@@ -89,7 +89,7 @@ export interface Lease {
   previous_lease_id: string | null;
 }
 
-export type InspectionType = "move_in" | "move_out";
+export type InspectionType = "move_in" | "move_out" | "scheduled" | "ticket_triggered";
 
 export interface Inspection {
   id: string;
@@ -105,6 +105,10 @@ export interface Inspection {
   deposit_deduction: number | null;
   deposit_refund: number | null;
   settled_at: string | null;
+  scheduled_for: string | null;
+  triggered_by_ticket_id: string | null;
+  follow_up_notes: string | null;
+  follow_up_due_on: string | null;
 }
 
 export type InvoiceStatus = "pending" | "partially_paid" | "paid" | "overdue" | "cancelled";
@@ -184,6 +188,8 @@ export interface MaintenanceTicket {
   resolution_notes: string | null;
   closed_at: string | null;
   created_at: string;
+  sla_due_at: string | null;
+  sla_breached_at: string | null;
 }
 
 export interface FieldStaffUser {

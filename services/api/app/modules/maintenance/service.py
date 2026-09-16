@@ -1,10 +1,11 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.models.maintenance import MaintenanceTicket, TicketStatus
+from app.models.audit import AuditLog
+from app.models.maintenance import MaintenanceTicket, TicketPriority, TicketStatus
 from app.models.property import Property
 from app.models.rbac import Role, RoleAssignment
 from app.models.user import User
@@ -13,6 +14,15 @@ from app.modules.auth.service import get_user_role
 from app.modules.inspections.service import verify_property_access
 from app.modules.maintenance.schemas import ResolveRequest, TicketCreate
 from app.modules.properties.service import PropertyNotFoundError
+
+# Doc's exit gate calls for tickets "routed with SLA" — these are the
+# per-priority response windows the escalation check compares against.
+PRIORITY_SLA_HOURS: dict[TicketPriority, int] = {
+    TicketPriority.URGENT: 4,
+    TicketPriority.HIGH: 24,
+    TicketPriority.MEDIUM: 72,
+    TicketPriority.LOW: 168,
+}
 
 
 class TicketNotFoundError(Exception):
@@ -34,17 +44,50 @@ class InvalidTicketTransitionError(Exception):
 def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> MaintenanceTicket:
     verify_property_access(db, data.property_id, user_id)
 
+    now = datetime.now(UTC)
     ticket = MaintenanceTicket(
         property_id=data.property_id,
         category=data.category,
         description=data.description,
         priority=data.priority,
         raised_by=user_id,
+        sla_due_at=now + timedelta(hours=PRIORITY_SLA_HOURS[data.priority]),
     )
     db.add(ticket)
     db.commit()
     db.refresh(ticket)
     return ticket
+
+
+def run_sla_check(db: Session) -> list[uuid.UUID]:
+    """Flags newly-SLA-breached tickets. Called by an external cron
+    against POST /internal/maintenance/sla-check, not from user traffic.
+
+    The single UPDATE...RETURNING is naturally safe against overlapping
+    cron runs (each row can only be claimed once, no lock needed).
+    """
+    now = datetime.now(UTC)
+    stmt = (
+        update(MaintenanceTicket)
+        .where(MaintenanceTicket.sla_breached_at.is_(None))
+        .where(MaintenanceTicket.sla_due_at.is_not(None))
+        .where(MaintenanceTicket.sla_due_at < now)
+        .where(MaintenanceTicket.status != TicketStatus.CLOSED)
+        .values(sla_breached_at=now)
+        .returning(MaintenanceTicket.id)
+    )
+    breached_ids = list(db.execute(stmt).scalars())
+    for ticket_id in breached_ids:
+        db.add(
+            AuditLog(
+                actor_id=None,
+                action="ticket.sla_breached",
+                entity_type="maintenance_ticket",
+                entity_id=ticket_id,
+            )
+        )
+    db.commit()
+    return breached_ids
 
 
 def list_tickets(

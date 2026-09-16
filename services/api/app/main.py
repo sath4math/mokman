@@ -8,6 +8,7 @@ from app.modules.expenses.router import router as expenses_router
 from app.modules.finance.router import router as finance_router
 from app.modules.inspections.router import router as inspections_router
 from app.modules.leases.router import router as leases_router
+from app.modules.maintenance.router import internal_router as maintenance_internal_router
 from app.modules.maintenance.router import router as maintenance_router
 from app.modules.maintenance_schedules.router import router as maintenance_schedules_router
 from app.modules.owner.router import router as owner_router
@@ -42,6 +43,7 @@ app.include_router(vendors_router)
 app.include_router(maintenance_schedules_router)
 app.include_router(utilities_router)
 app.include_router(compliance_router)
+app.include_router(maintenance_internal_router)
 
 
 @app.get("/health")

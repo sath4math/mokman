@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Text
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,14 +12,19 @@ from app.models.base import Base, TimestampMixin, str_enum_column, uuid_pk
 class InspectionType(str, enum.Enum):
     MOVE_IN = "move_in"
     MOVE_OUT = "move_out"
+    SCHEDULED = "scheduled"
+    TICKET_TRIGGERED = "ticket_triggered"
 
 
 class Inspection(Base, TimestampMixin):
     """A property walkthrough record — deliberately generic.
 
-    Move-in/move-out today; Phase 4 formalizes this into the full
-    inspection system (scheduled, complaint-triggered, etc.) by adding
-    InspectionType values and fields, not by replacing this model.
+    Move-in/move-out (Phase 2), plus Phase 4's formalization:
+    `scheduled` (owner/admin books one ahead via `scheduled_for`, no
+    lease required) and `ticket_triggered` (raised from a maintenance
+    ticket via `triggered_by_ticket_id`). Same model, same
+    checklist/sign-off flow — only new type values and fields, not a
+    parallel system.
     """
 
     __tablename__ = "inspections"
@@ -35,6 +40,13 @@ class Inspection(Base, TimestampMixin):
     checklist: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     meter_readings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    scheduled_for: Mapped[date | None] = mapped_column(Date, nullable=True)
+    triggered_by_ticket_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("maintenance_tickets.id"), nullable=True
+    )
+    follow_up_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    follow_up_due_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     owner_signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     tenant_signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

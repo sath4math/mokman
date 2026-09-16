@@ -1,8 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.inspections.service import NotPartyToInspectionError
@@ -10,6 +11,7 @@ from app.modules.maintenance.schemas import (
     AssignRequest,
     FieldStaffOut,
     ResolveRequest,
+    SlaCheckResult,
     TicketCreate,
     TicketOut,
 )
@@ -27,11 +29,13 @@ from app.modules.maintenance.service import (
     reopen_ticket,
     require_ticket_access,
     resolve_ticket,
+    run_sla_check,
     start_ticket,
 )
 from app.modules.properties.service import PropertyNotFoundError
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
+internal_router = APIRouter(prefix="/internal/maintenance", tags=["internal"])
 
 
 @router.post("/tickets", response_model=TicketOut, status_code=status.HTTP_201_CREATED)
@@ -208,3 +212,13 @@ def reopen(
     except InvalidTicketTransitionError:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only a closed ticket can be reopened") from None
     return TicketOut.model_validate(ticket)
+
+
+@internal_router.post("/sla-check", response_model=SlaCheckResult)
+def sla_check(
+    db: Session = Depends(get_db),
+    x_cron_secret: str | None = Header(default=None),
+) -> SlaCheckResult:
+    if not x_cron_secret or x_cron_secret != settings.sla_cron_secret:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid cron secret")
+    return SlaCheckResult(breached_ticket_ids=run_sla_check(db))

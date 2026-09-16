@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 30
+    sla_cron_secret: str = "change-me-in-production"
 
     s3_endpoint_url: str = ""
     s3_bucket: str = ""

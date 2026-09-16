@@ -178,6 +178,13 @@
   color: var(--color-text-faint);
 }
 
+.badgeDanger {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-danger);
+}
+
 .flexRow {
   display: flex;
   align-items: center;

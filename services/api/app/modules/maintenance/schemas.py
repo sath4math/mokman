@@ -35,6 +35,8 @@ class TicketOut(BaseModel):
     resolution_notes: str | None
     closed_at: datetime | None
     created_at: datetime
+    sla_due_at: datetime | None
+    sla_breached_at: datetime | None
 
     model_config = {"from_attributes": True}
 
@@ -45,3 +47,7 @@ class FieldStaffOut(BaseModel):
     email: str | None
 
     model_config = {"from_attributes": True}
+
+
+class SlaCheckResult(BaseModel):
+    breached_ticket_ids: list[uuid.UUID]

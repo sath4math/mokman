@@ -45,6 +45,7 @@ def create(
 def list_for_property(
     property_id: uuid.UUID,
     lease_id: uuid.UUID | None = None,
+    upcoming_only: bool = False,
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[InspectionOut]:
@@ -56,7 +57,9 @@ def list_for_property(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this property"
         ) from None
-    return [InspectionOut.model_validate(i) for i in list_inspections(db, property_id, lease_id)]
+    return [
+        InspectionOut.model_validate(i) for i in list_inspections(db, property_id, lease_id, upcoming_only)
+    ]
 
 
 @router.patch("/{inspection_id}", response_model=InspectionOut)

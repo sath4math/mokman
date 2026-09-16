@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -13,6 +13,10 @@ class InspectionCreate(BaseModel):
     checklist: dict | None = None
     notes: str | None = None
     meter_readings: dict | None = None
+    scheduled_for: date | None = None
+    triggered_by_ticket_id: uuid.UUID | None = None
+    follow_up_notes: str | None = None
+    follow_up_due_on: date | None = None
 
 
 class InspectionUpdate(BaseModel):
@@ -21,6 +25,8 @@ class InspectionUpdate(BaseModel):
     meter_readings: dict | None = None
     deposit_deduction: float | None = None
     deposit_refund: float | None = None
+    follow_up_notes: str | None = None
+    follow_up_due_on: date | None = None
 
 
 class InspectionOut(BaseModel):
@@ -37,5 +43,9 @@ class InspectionOut(BaseModel):
     deposit_deduction: float | None
     deposit_refund: float | None
     settled_at: datetime | None
+    scheduled_for: date | None
+    triggered_by_ticket_id: uuid.UUID | None
+    follow_up_notes: str | None
+    follow_up_due_on: date | None
 
     model_config = {"from_attributes": True}

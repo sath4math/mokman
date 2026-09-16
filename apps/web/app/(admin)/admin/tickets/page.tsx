@@ -31,7 +31,10 @@ export default async function AdminTicketsPage() {
                 </span>
                 <span className={ui.faintText}>priority: {ticket.priority}</span>
               </div>
-              <span className={ui.badge}>{ticket.status.replace(/_/g, " ")}</span>
+              <span className={ui.flexRow}>
+                {ticket.sla_breached_at && <span className={ui.badgeDanger}>SLA breached</span>}
+                <span className={ui.badge}>{ticket.status.replace(/_/g, " ")}</span>
+              </span>
             </Link>
           </li>
         ))}
