@@ -1101,7 +1101,7 @@ due-date/paid-tracking shape.
   property-scoped owner pages resolving) — route-existence
   verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 8b — Renovation & Project Management (implemented, verified locally — not yet deployed)
+### 🧱 Phase 8b — Renovation & Project Management (deployed; owner+tenant flows not yet re-verified in prod)
 Confirmed sequencing with the user: 8b (Renovation) → 8c (Investment
 Intelligence) → 8d (Sale/Transfer/Exit), each its own cycle, closing
 out Phase 8's buildable scope. Smart Property/IoT stays formally
@@ -1153,6 +1153,59 @@ frontend, not a proportionate single slice.
   expense exactly — the deliberate contrast with 8a's ledger-isolated
   flows; paying an already-paid milestone correctly 409s. Plus local
   `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/renovation/milestones/{id}/complete`,
+  `/renovation/milestones/{id}/pay` present in `openapi.json`,
+  property-scoped owner pages resolving) — route-existence
+  verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 8c — Investment Intelligence (implemented, verified locally — not yet deployed)
+Continues the confirmed 8b→8c→8d sequencing. Directly revisits 7b's
+explicit cut: "yield/ROI — `Property` has no cost-basis field...
+adding one just for this wouldn't be proportionate to *that* slice."
+Now that investment intelligence is the deliberate point of this one,
+adding `Property.purchase_price`/`current_market_value` is exactly
+proportionate, and everything else (yield, appreciation, ROI,
+portfolio comparison) is a deterministic formula over those two new
+fields plus the **existing** ledger — same "reporting = queries"
+precedent as 5c/6c/7b. "Buy-vs-rent" stays cut for the same reason
+Phase 7's market rent estimation was cut: it needs external
+market-rent comps this codebase has never had access to.
+- Confirmed with the user: includes a thin LLM-generated sell/hold
+  narrative reusing 7a's `ask_claude` — advisory only, never
+  auto-acting, explicitly framed in its own system prompt as "not
+  financial advice," same human-in-the-loop principle as every AI
+  feature so far. Shares 7a/7c's already-open live-answer-quality gap.
+- **Real gap found during exploration, fixed alongside the feature**:
+  `PATCH /properties/{id}` has existed since Phase 1 but **never had a
+  frontend surface** — the owner property pages were create-only.
+  Without fixing this there'd be no way to actually set
+  `current_market_value` (which changes over time, unlike
+  `purchase_price`) after creation. New `InvestmentPanel` adds that
+  missing inline editor, scoped to the two new fields, not a general
+  property-edit form.
+- `compute_investment_summary` (`app/modules/properties/service.py`,
+  same "computed on read" precedent as 7b's `compute_health_score`):
+  appreciation, trailing-12-month rent income, gross yield, all-time
+  net income, and ROI — every metric `None` when an input it needs is
+  missing. `GET /properties/{id}/investment-summary` and `GET
+  /properties/investment-portfolio` (owner-only list, same shape as
+  7b's `compare_profitability`).
+- New `POST /assistant/properties/{id}/investment-recommendation`
+  (owner-only, no request body — a fixed task like 7c's damage
+  analysis).
+- **Verified against local Postgres end-to-end**: a property with
+  neither field set returns every metric as `null`; after setting
+  `purchase_price=1,000,000`/`current_market_value=1,200,000` via the
+  previously-frontend-unused `PATCH` and logging a ₹5,000 expense,
+  every metric matched hand-calculated values exactly (20%
+  appreciation, -5,000 all-time net income, 19.5% ROI); portfolio
+  correctly isolated per owner; a non-owner correctly 404s on `PATCH`
+  (matching `get_owned_property`'s existing behavior); the
+  recommendation endpoint correctly reaches the LLM boundary (503,
+  same as 7a/7c) confirming the summary computation and auth run
+  cleanly first. Plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
+  `build`.
 - **Not yet deployed.**
 
 ## Local development
