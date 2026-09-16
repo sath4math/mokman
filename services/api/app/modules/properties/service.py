@@ -1,10 +1,28 @@
 import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.inspection import Inspection
+from app.models.maintenance import MaintenanceSchedule, MaintenanceTicket, TicketStatus
 from app.models.property import Property
-from app.modules.properties.schemas import PropertyCreate, PropertyUpdate
+from app.modules.properties.schemas import PropertyCreate, PropertyHealthScoreOut, PropertyUpdate
+
+# Phase 7b: a deterministic 0-100 score, not a trained/ML prediction --
+# capped deductions per signal so no single ticket-heavy property can
+# swamp the others, and each count is returned alongside the score so
+# it's explainable, not a black box.
+_OPEN_TICKET_PENALTY = 5
+_OPEN_TICKET_CAP = 30
+_REPEAT_FAILURE_PENALTY = 10
+_REPEAT_FAILURE_CAP = 20
+_SLA_BREACH_PENALTY = 10
+_SLA_BREACH_CAP = 20
+_OVERDUE_PM_PENALTY = 5
+_OVERDUE_PM_CAP = 20
+_OVERDUE_FOLLOWUP_PENALTY = 10
+_OVERDUE_FOLLOWUP_CAP = 20
 
 
 class PropertyNotFoundError(Exception):
@@ -48,3 +66,55 @@ def update_property(db: Session, owner_id: uuid.UUID, property_id: uuid.UUID, da
     db.commit()
     db.refresh(property_)
     return property_
+
+
+def compute_health_score(db: Session, property_id: uuid.UUID) -> PropertyHealthScoreOut:
+    today = datetime.now(UTC).date()
+
+    open_tickets = db.execute(
+        select(func.count())
+        .select_from(MaintenanceTicket)
+        .where(MaintenanceTicket.property_id == property_id, MaintenanceTicket.status != TicketStatus.CLOSED)
+    ).scalar_one()
+    repeat_failure_tickets = db.execute(
+        select(func.count())
+        .select_from(MaintenanceTicket)
+        .where(MaintenanceTicket.property_id == property_id, MaintenanceTicket.is_repeat_failure.is_(True))
+    ).scalar_one()
+    sla_breached_tickets = db.execute(
+        select(func.count())
+        .select_from(MaintenanceTicket)
+        .where(MaintenanceTicket.property_id == property_id, MaintenanceTicket.sla_breached_at.is_not(None))
+    ).scalar_one()
+    overdue_pm_items = db.execute(
+        select(func.count())
+        .select_from(MaintenanceSchedule)
+        .where(
+            MaintenanceSchedule.property_id == property_id,
+            MaintenanceSchedule.is_active.is_(True),
+            MaintenanceSchedule.next_due_on <= today,
+        )
+    ).scalar_one()
+    overdue_inspection_followups = db.execute(
+        select(func.count())
+        .select_from(Inspection)
+        .where(Inspection.property_id == property_id, Inspection.follow_up_due_on.is_not(None))
+        .where(Inspection.follow_up_due_on <= today)
+    ).scalar_one()
+
+    deductions = (
+        min(open_tickets * _OPEN_TICKET_PENALTY, _OPEN_TICKET_CAP)
+        + min(repeat_failure_tickets * _REPEAT_FAILURE_PENALTY, _REPEAT_FAILURE_CAP)
+        + min(sla_breached_tickets * _SLA_BREACH_PENALTY, _SLA_BREACH_CAP)
+        + min(overdue_pm_items * _OVERDUE_PM_PENALTY, _OVERDUE_PM_CAP)
+        + min(overdue_inspection_followups * _OVERDUE_FOLLOWUP_PENALTY, _OVERDUE_FOLLOWUP_CAP)
+    )
+
+    return PropertyHealthScoreOut(
+        score=max(0, 100 - deductions),
+        open_tickets=open_tickets,
+        repeat_failure_tickets=repeat_failure_tickets,
+        sla_breached_tickets=sla_breached_tickets,
+        overdue_pm_items=overdue_pm_items,
+        overdue_inspection_followups=overdue_inspection_followups,
+    )

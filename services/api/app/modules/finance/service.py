@@ -1,12 +1,28 @@
+import statistics
 import uuid
-from datetime import UTC, datetime
+from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.expense import Expense
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.property import Property
-from app.modules.finance.schemas import LedgerEntryOut, StatementOut
+from app.modules.finance.schemas import (
+    ExpenseAnomalyOut,
+    LedgerEntryOut,
+    PropertyProfitabilityOut,
+    StatementOut,
+)
+from app.modules.properties.service import list_properties_for_owner
+
+# Anomaly detection thresholds (Phase 7b) -- deterministic statistics,
+# not ML. A category needs at least this many expenses before its
+# mean/stddev are considered meaningful enough to flag against.
+_MIN_CATEGORY_SAMPLES = 3
+_ANOMALY_STDDEV_THRESHOLD = 2
+_DUPLICATE_WINDOW = timedelta(hours=24)
 
 
 def record_ledger_entry(
@@ -105,3 +121,70 @@ def get_owner_statement(db: Session, owner_id: uuid.UUID, year: int, month: int)
 def default_year_month() -> tuple[int, int]:
     today = datetime.now(UTC).date()
     return today.year, today.month
+
+
+def compare_profitability(db: Session, owner_id: uuid.UUID, year: int, month: int) -> list[PropertyProfitabilityOut]:
+    results = [
+        PropertyProfitabilityOut(
+            property_id=property_.id,
+            property_name=property_.name,
+            year=year,
+            month=month,
+            net_payable=get_property_statement(db, property_.id, year, month).net_payable,
+        )
+        for property_ in list_properties_for_owner(db, owner_id)
+    ]
+    return sorted(results, key=lambda r: r.net_payable, reverse=True)
+
+
+def detect_expense_anomalies(db: Session, owner_id: uuid.UUID) -> list[ExpenseAnomalyOut]:
+    expenses = list(
+        db.execute(
+            select(Expense).join(Property, Expense.property_id == Property.id).where(Property.owner_id == owner_id)
+        ).scalars()
+    )
+
+    anomalies: list[ExpenseAnomalyOut] = []
+
+    by_category: dict[str, list[Expense]] = defaultdict(list)
+    for expense in expenses:
+        by_category[expense.category].append(expense)
+    for category_expenses in by_category.values():
+        if len(category_expenses) < _MIN_CATEGORY_SAMPLES:
+            continue
+        amounts = [e.amount for e in category_expenses]
+        mean = statistics.mean(amounts)
+        stddev = statistics.pstdev(amounts)
+        if stddev == 0:
+            continue
+        for expense in category_expenses:
+            if expense.amount > mean + _ANOMALY_STDDEV_THRESHOLD * stddev:
+                anomalies.append(
+                    ExpenseAnomalyOut(
+                        expense_id=expense.id,
+                        property_id=expense.property_id,
+                        category=expense.category,
+                        amount=expense.amount,
+                        reason=f"Unusually high for '{expense.category}' (category average: {mean:.2f})",
+                    )
+                )
+
+    for i, a in enumerate(expenses):
+        for b in expenses[i + 1 :]:
+            if (
+                a.property_id == b.property_id
+                and a.category == b.category
+                and a.amount == b.amount
+                and abs(a.created_at - b.created_at) <= _DUPLICATE_WINDOW
+            ):
+                anomalies.append(
+                    ExpenseAnomalyOut(
+                        expense_id=b.id,
+                        property_id=b.property_id,
+                        category=b.category,
+                        amount=b.amount,
+                        reason=f"Possible duplicate of expense {a.id}",
+                    )
+                )
+
+    return anomalies

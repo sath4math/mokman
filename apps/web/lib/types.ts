@@ -48,6 +48,15 @@ export interface Property {
   furnishing_status: string | null;
 }
 
+export interface PropertyHealthScore {
+  score: number;
+  open_tickets: number;
+  repeat_failure_tickets: number;
+  sla_breached_tickets: number;
+  overdue_pm_items: number;
+  overdue_inspection_followups: number;
+}
+
 export interface DocumentRecord {
   id: string;
   owner_type: string;
@@ -157,6 +166,22 @@ export interface PropertyStatement {
   mokman_fee: number;
   net_payable: number;
   entries: LedgerEntry[];
+}
+
+export interface PropertyProfitability {
+  property_id: string;
+  property_name: string;
+  year: number;
+  month: number;
+  net_payable: number;
+}
+
+export interface ExpenseAnomaly {
+  expense_id: string;
+  property_id: string;
+  category: string;
+  amount: number;
+  reason: string;
 }
 
 export type ExpenseStatus = "pending" | "approved" | "rejected";

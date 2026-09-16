@@ -37,3 +37,12 @@ class PropertyOut(PropertyCreate):
     status: PropertyStatus
 
     model_config = {"from_attributes": True}
+
+
+class PropertyHealthScoreOut(BaseModel):
+    score: int
+    open_tickets: int
+    repeat_failure_tickets: int
+    sla_breached_tickets: int
+    overdue_pm_items: int
+    overdue_inspection_followups: int

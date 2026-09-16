@@ -31,3 +31,19 @@ class StatementOut(BaseModel):
     mokman_fee: float
     net_payable: float
     entries: list[LedgerEntryOut]
+
+
+class PropertyProfitabilityOut(BaseModel):
+    property_id: uuid.UUID
+    property_name: str
+    year: int
+    month: int
+    net_payable: float
+
+
+class ExpenseAnomalyOut(BaseModel):
+    expense_id: uuid.UUID
+    property_id: uuid.UUID
+    category: str
+    amount: float
+    reason: str

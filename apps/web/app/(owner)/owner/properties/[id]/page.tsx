@@ -13,6 +13,7 @@ import type {
   MaintenanceSchedule,
   MaintenanceTicket,
   Property,
+  PropertyHealthScore,
   PropertyStatement,
   ServiceCategory,
   UtilityConnection,
@@ -48,6 +49,7 @@ export default async function PropertyDetailPage({
     complianceDues,
     inspections,
     serviceCategories,
+    healthScore,
   ] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
@@ -60,6 +62,7 @@ export default async function PropertyDetailPage({
     backendFetch<ComplianceDue[]>(`/compliance/dues?property_id=${id}`),
     backendFetch<Inspection[]>(`/inspections?property_id=${id}`),
     backendFetch<ServiceCategory[]>("/maintenance/service-categories?active_only=true"),
+    backendFetch<PropertyHealthScore>(`/properties/${id}/health-score`),
   ]);
 
   if (!property) notFound();
@@ -152,6 +155,27 @@ export default async function PropertyDetailPage({
           <p className={ui.mutedText}>No financial activity yet this month.</p>
         )}
       </section>
+
+      {healthScore && (
+        <section className={styles.leaseSection}>
+          <h2 className={styles.leaseHeading}>Health score</h2>
+          <div className={ui.card}>
+            <p className={ui.flexBetween}>
+              <span>Score</span>
+              <strong>{healthScore.score}/100</strong>
+            </p>
+            <div className={ui.flexCol}>
+              <span className={ui.faintText}>Open tickets: {healthScore.open_tickets}</span>
+              <span className={ui.faintText}>Repeat-failure tickets: {healthScore.repeat_failure_tickets}</span>
+              <span className={ui.faintText}>SLA-breached tickets: {healthScore.sla_breached_tickets}</span>
+              <span className={ui.faintText}>Overdue preventive maintenance: {healthScore.overdue_pm_items}</span>
+              <span className={ui.faintText}>
+                Overdue inspection follow-ups: {healthScore.overdue_inspection_followups}
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
 
       <ExpensesPanel propertyId={property.id} initialExpenses={expenses ?? []} />
 
