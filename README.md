@@ -125,15 +125,52 @@ it's split: this pass is ticketing only.
   as `lease-detail.tsx`. Field Staff's `/field` page stopped being a
   placeholder and is now a real "My Jobs" list. Admin's second real
   screen (`/admin/tickets`) after Phase 3's expenses page.
-- Deferred to **Phase 4b**: vendor operations (registration/KYC/rate
-  cards/invoicing), preventive maintenance (asset service calendars),
-  utility management, society/government coordination, SLA automation
-  (needs a real scheduler, not proportionate yet), and the Phase 2
-  `Inspection` model's "formalization" (ticket-triggered/scheduled
-  inspection types) — the ticket's own document vault already covers
-  this pass's "closed with evidence" need.
+- Deferred at the time to **Phase 4b** (vendor operations — see below
+  for the slice actually delivered) and **Phase 4c**: preventive
+  maintenance (asset service calendars), utility management,
+  society/government coordination, SLA automation (needs a real
+  scheduler, not proportionate yet), and the Phase 2 `Inspection`
+  model's "formalization" (ticket-triggered/scheduled inspection
+  types) — the ticket's own document vault already covers this pass's
+  "closed with evidence" need.
 - Same known verification gap as Phase 3: field-staff/admin production
   login isn't re-verified here either (owner+tenant flows are).
+
+### 🧱 Phase 4b — Vendor Operations (implemented, verified locally — not yet deployed)
+Core vendor loop only, cut down from the full doc scope the same way
+4a cut ticketing from all of Phase 4.
+- `Vendor`: standalone directory entity (`app/models/vendor.py`), **not**
+  a `User` — vendors don't log in (internal resource model, not a
+  marketplace, per the product spec). Admin manages the directory via
+  `/admin/vendors`; `is_active` doubles as this pass's lightweight
+  blacklist toggle.
+- `MaintenanceTicket.assigned_vendor_id` sits alongside the existing
+  `assigned_to` (field_staff) FK — exactly one is set at a time, enforced
+  in `assign_ticket`. `POST /maintenance/tickets/{id}/assign` now accepts
+  either `assigned_to` or `assigned_vendor_id`; the shared
+  `ticket-detail.tsx` assignment dropdown groups both option sets. A
+  vendor has no login, so only owner/admin drive a vendor-assigned
+  ticket's lifecycle (start/resolve/close) — the field_staff
+  self-service path doesn't apply to vendor-assigned tickets.
+- `Expense.vendor_id` (nullable FK) lets a vendor invoice flow through
+  the **existing** Phase 3 expense-approval → ledger pipeline
+  unchanged; the ledger entry's `reference_note` carries the vendor
+  name rather than adding a new ledger column.
+- Deferred to **Phase 4c**: rate cards, performance scoring, a formal
+  blacklist workflow (reason/history/reinstatement — this pass is just
+  an `is_active` toggle), vendor self-service login, smart
+  vendor↔ticket-category matching in the assignment picker, plus
+  everything already deferred from 4a (utility management,
+  society/government coordination, preventive maintenance, SLA
+  automation, Inspection-model formalization).
+- **Not yet deployed.** Verified against local Postgres end-to-end
+  (vendor CRUD, ticket-assignment validation including the
+  exactly-one-assignee rule and inactive-vendor rejection, a
+  vendor-linked expense flowing through approval → ledger → finance
+  statement) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+  Not yet pushed to `main`, so there's no prod verification to report
+  — once it is, expect the same admin/field-staff prod-login
+  verification gap noted under Phase 3.
 
 ## Local development
 
