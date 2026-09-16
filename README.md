@@ -797,7 +797,7 @@ remains deliberately out of scope — confirmed with the user twice
 explicitly flags for a build-vs-buy evaluation against existing
 HR-tech, not a proportionate slice of this phase.
 
-### 🧱 Phase 7a — AI Owner Assistant + AI Document Assistant (implemented, verified up to the LLM boundary — not yet deployed)
+### 🧱 Phase 7a — AI Owner Assistant + AI Document Assistant (deployed; live answer-quality still unverified — see gap below)
 Phase 7's own doc note is blunt: it "depends entirely on data volume
 and quality from Phases 1-6" and warns against predictive/ML work
 before there's real usage history. This system currently has only test
@@ -860,6 +860,78 @@ Assistant depends on).
   (does the assistant's answer actually reflect the seeded data
   correctly) is unverified until a real key is added — do this before
   trusting the feature in prod.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/assistant/ask`/`/assistant/documents/{id}/ask` present in
+  `openapi.json`, `/owner/assistant` resolving, an unauthenticated
+  request correctly 401s before ever reaching the 503-not-configured
+  check) — route-existence verification only, same gap as every phase
+  since 4b, **plus** the live-answer-quality gap above, which is
+  specific to this phase and still open.
+
+### 🧱 Phase 7b — Property Health Score + Financial Intelligence Summary (implemented, verified locally — not yet deployed)
+Of what's left in Phase 7 after 7a — Predictive Maintenance, AI Rent
+Intelligence, and the forecasting parts of AI Financial Intelligence —
+each still hits the doc's "depends entirely on data volume" wall
+(this system still has only test data) or needs an external data
+source that doesn't exist anywhere in this codebase (rent intelligence
+needs market/locality comps). Two pieces don't have either blocker,
+because they're composite scores/summaries over data that already
+exists *today*, not predictions about the future: Property Health
+Score, and the parts of AI Financial Intelligence that don't require
+forecasting (profitability comparison, expense anomaly detection). The
+user chose the combined scope over a narrower health-score-only
+recommendation.
+- **Both features are entirely deterministic — no LLM call, no
+  `ANTHROPIC_API_KEY` dependency**, unlike 7a. They're formulas/
+  statistics over existing structured data, same "reporting = queries"
+  precedent as 5c/6c/6d, so there's nothing to hallucinate and nothing
+  gated on the AI assistant's configuration — fully verifiable today.
+- **Explicitly cut, with reasons**: yield/ROI (the doc's own bullet) —
+  `Property` has no cost-basis field (purchase price/market value)
+  anywhere in the schema, and adding one just for this wouldn't be
+  proportionate to this slice. Cash-flow *forecasting* — nowhere near
+  enough month-over-month history in the test data to extrapolate from
+  honestly. "Tenant feedback" and "safety" as health-score inputs — no
+  such data is collected anywhere in the system today.
+- **Property Health Score** (`GET /properties/{id}/health-score`,
+  `app/modules/properties/service.py`): a deterministic 0-100 score
+  with capped deductions from signals that already exist — open
+  tickets (-5 each, cap -30), `is_repeat_failure` tickets (-10 each,
+  cap -20, reuses 5c's flag), SLA-breached tickets (-10 each, cap -20,
+  reuses 4d's field), overdue active `MaintenanceSchedule` rows (-5
+  each, cap -20, reuses 4c's PM model), overdue `Inspection`
+  follow-ups (-10 each, cap -20, reuses 4d's inspection-formalization
+  fields). The raw counts come back alongside the score, so it's
+  explainable, not a black box. New panel on the owner property detail
+  page.
+- **Financial Intelligence Summary** (`app/modules/finance/service.py`):
+  `GET /finance/profitability` calls the **existing**
+  `get_property_statement` for each of an owner's properties and sorts
+  by `net_payable` — zero new aggregation math. `GET /finance/anomalies`
+  runs two stdlib-only checks (`statistics.mean`/`pstdev`, no new
+  dependency) over the owner's expenses: an amount more than 2 standard
+  deviations above its category's mean (only when that category has
+  ≥3 expenses, to avoid false positives on tiny samples), and two
+  same-property/category/amount expenses recorded within 24 hours of
+  each other as a possible duplicate. New `/owner/insights` page.
+- **Known limitation, found during verification, not a bug**: the
+  mean+2σ anomaly check can mask its own outlier on a very small sample
+  — with only 3 normal values plus 1 outlier, the outlier itself
+  dragged the mean/stddev up enough that it fell back under the
+  threshold and went unflagged. Retested with 8 normal values plus the
+  same outlier and it flagged correctly. This is a real characteristic
+  of simple small-sample outlier detection, not something this slice
+  tries to fix — consistent with the doc's own "start rule-based, don't
+  over-engineer before you have volume" guidance for exactly this kind
+  of check.
+- **Verified against local Postgres end-to-end**: a clean property
+  scores 100; one open ticket + one repeat-failure + one SLA-breach +
+  one overdue-PM-item + one overdue-inspection-followup together scored
+  exactly 60 (100-5-10-10-5-10) with matching breakdown counts;
+  profitability comparison correctly ranked two properties by
+  `net_payable`; anomaly detection correctly caught a real duplicate
+  pair and (at a realistic sample size) a genuine outlier. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
 
 ## Local development
