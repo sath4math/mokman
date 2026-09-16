@@ -938,7 +938,7 @@ recommendation.
   `/owner/insights` resolving) — route-existence verification only,
   same gap as every phase since 4b.
 
-### 🧱 Phase 7c — Recurring Problems, Rent Escalation Projection, AI Damage Photo Analysis (implemented, verified locally — not yet deployed)
+### 🧱 Phase 7c — Recurring Problems, Rent Escalation Projection, AI Damage Photo Analysis (deployed; owner+tenant flows not yet re-verified in prod)
 The user asked to scope 7c and close out Phase 7 entirely. Two of the
 doc's remaining bullets are architecturally blocked, not just
 deprioritized: market rent estimation / locality trends need an
@@ -999,7 +999,12 @@ pretending predictive/rent-intelligence work got done.
   R2 fetch of an uploaded test photo) with photos attached, and 403s
   for a user who isn't a party to the inspection. Plus local
   `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
-- **Not yet deployed.**
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`/maintenance/reports/recurring-problems`,
+  `/rent/escalation-projections`,
+  `/assistant/inspections/{id}/analyze` present in `openapi.json`,
+  `/owner/insights` and the property detail page resolving) —
+  route-existence verification only, same gap as every phase since 4b.
 
 ### ✅ Phase 7 — AI and Property Intelligence: core scope complete (7a-7c)
 The AI Owner Assistant, AI Document Assistant, Property Health Score,
@@ -1028,6 +1033,69 @@ deferred**, each for a specific reason:
 - **Live answer-quality verification for 7a/7c's LLM-backed
   features** remains open pending a real `ANTHROPIC_API_KEY` — the
   standing gap called out in 7a, unaffected by this completion marker.
+
+### 🧱 Phase 8a — Asset & Inventory Management + Insurance Management (implemented, verified locally — not yet deployed)
+Phase 8 ("Complete Property Lifecycle") is the broadest phase yet —
+seven sub-areas: Asset & Inventory, Renovation & Project Management,
+Smart Property/IoT, Insurance, NRI Property Management, Investment
+Intelligence, and Sale/Transfer/Exit. IoT is explicitly flagged by the
+doc as hardware/vendor-dependent — a separate technical track, same
+category of blocker as Phase 7's rent-intelligence data source — so
+it's untouched here. Renovation & Project Management explicitly
+overlaps with Phase 4/5's vendor/work-order infrastructure per the
+doc's own note ("reuse rather than rebuild"), so it's a natural next
+slice but not this one. The user chose Asset & Inventory Management +
+Insurance Management combined as the starting slice — both
+self-contained CRUD domains with no external dependencies, reusing the
+exact `ComplianceDue`-style pattern (`app/modules/compliance/`) already
+proven for property-scoped, owner-managed records with a
+due-date/paid-tracking shape.
+- **Same ledger-isolation precedent as 4c's `ComplianceDue`**:
+  premium/settlement tracking is administrative record-keeping only,
+  not auto-posted to the ledger — verified explicitly that filing and
+  settling an insurance claim leaves `GET /finance/statement`
+  completely untouched.
+- **New `Asset` model** (`app/models/asset.py`): full lifecycle —
+  purchase, warranty (`warranty_expires_on`, same field name as
+  `MaintenanceSchedule`'s), straight-line depreciation computed on read
+  from `purchase_cost`/`useful_life_years`/`purchase_date` (same
+  "computed, not stored" precedent as `VendorOut.average_rating`, `None`
+  when any input is missing), disposal (`is_active`/`disposed_at`/
+  `disposed_reason`), replacement (`POST /assets/{id}/replace` composes
+  create + dispose into one action, linking the two via
+  `replaced_by_asset_id` — same "supersedes" convention as
+  `Lease.previous_lease_id`), and transfer (just a `PATCH` on
+  `property_id`, re-validated against ownership of the destination
+  property too).
+- **Repairs and servicing reuse existing infrastructure, not new
+  tables**: `MaintenanceTicket` and `MaintenanceSchedule` each gained a
+  nullable `asset_id` FK — optional, zero behavior change for existing
+  rows (a real gap caught mid-implementation: the model columns were
+  added before the Pydantic schemas/service construction were updated
+  to actually expose and pass them through — fixed before shipping).
+- **New `InsurancePolicy`/`InsuranceClaim` models**
+  (`app/models/insurance.py`): "surveyor coordination" reduces to a
+  `surveyor_name` contact field, not a scheduling workflow — same
+  proportionate reduction 4c applied to society/government
+  coordination. Claim status transitions to `settled` auto-stamp
+  `settled_at`.
+- **Document vault extended, not duplicated**:
+  `documents/service.py`'s `verify_document_access` (the function 7a
+  extracted for reuse) gained `"asset"` and `"insurance_policy"`
+  branches — warranty cards and policy PDFs attach through the
+  existing vault with zero new upload/download code.
+- New `AssetsPanel`/`InsurancePanel` (with nested claims) on the owner
+  property detail page.
+- **Verified against local Postgres end-to-end**: depreciation math
+  exact (a 10,000-cost, 10-year-life asset bought 5 years ago showed
+  ~5,003 current value); dispose and replace both correctly linked;
+  a non-owner correctly blocked creating an asset (403) or accessing
+  its documents (404, matching the existing `get_owned_property`
+  behavior the "property" branch already has); a ticket with `asset_id`
+  set behaved identically otherwise; a filed-then-settled claim left
+  the finance statement at zero activity. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Not yet deployed.**
 
 ## Local development
 
