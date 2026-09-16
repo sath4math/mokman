@@ -511,7 +511,7 @@ analytics subsystem.
   present in `openapi.json`) — route-existence verification only, same
   gap as every phase since 4b.
 
-### 🧱 Phase 5d — Service Category Catalog + Managed-Service Request Intake (implemented, verified locally — not yet deployed)
+### 🧱 Phase 5d — Service Category Catalog + Managed-Service Request Intake (deployed; owner+tenant flows not yet re-verified in prod)
 Last piece of Phase 5's original doc scope: *"Managed service request
 intake... auto-categorization, priority, eligibility, estimated
 completion"* and *"Full managed-service category catalog."* 5a-5c
@@ -550,10 +550,64 @@ what happens **before** a ticket even exists.
   the catalog is empty, with a new "Auto (based on category)" priority
   option so the category default is actually reachable from the UI
   instead of always being overridden by an implicit `"medium"`.
-- **Not yet deployed.** Verified against local Postgres end-to-end (see
-  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Verified against local Postgres end-to-end (see bullets
+  above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed
+  to `main` and confirmed live in prod
+  (`/maintenance/service-categories` present in `openapi.json`,
+  `/admin/service-categories` resolving) — route-existence verification
+  only, same gap as every phase since 4b.
 - **Phase 5 status: fully closed (5a-5d)**, matching its full original
   doc scope — same kind of completion marker Phase 4 got after 4d.
+
+### 🧱 Phase 6a — Owner Package/Plan Tier Foundation (implemented, verified locally — not yet deployed)
+Phase 6's doc scope centers on a labour-service **eligibility engine**:
+whether a job is package-included, chargeable, or needs escalation.
+That's meaningless without owners actually having a package/plan tier —
+and **no such concept existed anywhere in this codebase** before this
+slice. Every model across Phases 1-5 was checked; nothing on `Property`
+or `OwnerProfile` represented a subscription tier, despite the product
+spec (`docs/Mokman_Product_Feature_Specification.md:109-139`) defining
+four real Owner Packages — **Starter, Managed, Full Care, Complete** —
+with "Complete" explicitly being *"everything, including in-house
+workforce & intelligence"* (i.e. Phase 6's own labour services are
+spec'd as a Complete-tier feature).
+- **Data only — deliberately no enforcement.** Every feature built in
+  Phases 1-5 was built with zero tier-gating, as if every owner were on
+  Complete. Retroactively gating all of that would be a large,
+  cross-cutting, high-risk change touching dozens of already
+  production-verified endpoints — not a "foundation" step, and not what
+  Phase 6's own doc scope actually asks for (its eligibility engine is
+  specifically about labour-service jobs, not the whole product).
+  Verified explicitly: creating a property, raising a ticket, and
+  logging an expense all still work identically regardless of an
+  owner's package value.
+- `OwnerProfile` gains `package` (`OwnerPackage` enum: `starter`
+  (default), `managed`, `full_care`, `complete`), same
+  `str_enum_column` pattern as this model's existing `ownership_type`/
+  `kyc_status` fields. **Zero service-layer code changes** —
+  `upsert_profile`'s existing generic `model_dump()`-based
+  create/update already handles it since it's just another
+  `OwnerProfileIn` field, which is about as clean a confirmation as
+  possible that this is purely additive.
+- Verified the full round-trip: a fresh owner who never sets `package`
+  defaults to `starter` on profile creation; setting it explicitly to
+  `complete` persists and round-trips on read.
+- **Scope boundary**: Tenant Packages (Standard/Verified/Priority, spec
+  `:141-156`) are deliberately out of scope — a tenant support/
+  verification-perk tier, not tied to Phase 6's labour-eligibility
+  engine, which is about a technician dispatched to the *owner's*
+  property under the *owner's* plan.
+- **Explicitly deferred**: admin overriding another owner's package (no
+  "admin views one specific owner" screen exists anywhere in this Admin
+  Portal today — building one just to expose this single field would be
+  its own feature, not a foundation step); any actual eligibility/gating
+  logic that reads this field (a later Phase 6 slice).
+- Owner profile form (`/owner/profile`) gained a "Plan" section with a
+  labeled dropdown using the spec's own positioning taglines (e.g.
+  "Complete — everything, including in-house workforce &
+  intelligence"), not a bare enum value.
+- **Not yet deployed.** Verified against local Postgres end-to-end (see
+  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 
 ## Local development
 
