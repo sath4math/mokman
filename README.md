@@ -673,7 +673,7 @@ hardcoded conditionals"* per the doc's own technical guidance.
   in `openapi.json`, `/admin/eligibility-rules` resolving) — route-
   existence verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 6c — Fair-Use Frequency/Value Limits (implemented, verified locally — not yet deployed)
+### 🧱 Phase 6c — Fair-Use Frequency/Value Limits (deployed; owner+tenant flows not yet re-verified in prod)
 6b explicitly deferred "fair-use frequency/value thresholds" as its own
 slice. Phase 6's exit gate calls for "flagging anything that breaches
 fair-use limits for owner approval" — this slice delivers exactly that.
@@ -729,6 +729,57 @@ new domain, both better as separate later slices.
   under-cap estimate still auto-approves; a ticket with no matching rule
   at all is completely unaffected. Plus local `ruff`/`mypy`/
   `pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Pushed to `main` and confirmed live in prod
+  (`max_occurrences`/`period_days`/`max_value`/`fair_use_breached`
+  present in `openapi.json`, `/admin/eligibility-rules` resolving) —
+  route-existence verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 6d — Material Usage Tracking (implemented, verified locally — not yet deployed)
+Of Phase 6's remaining doc scope — material/cost tracking and full
+workforce management (technician KYC, shifts, attendance, leave,
+training, safety certs) — workforce management stays out of scope,
+confirmed with the user: it's its own doc-sized track the spec
+explicitly flags for a build-vs-buy evaluation against existing
+HR-tech. Of "time tracking, material request/approval/consumption,
+wastage, actual-vs-estimate, subsidy and entitlement tracking," time
+tracking is already 5b's `check_in_at`/`check_out_at` and
+actual-vs-estimate is already 5c's `Expense.ticket_id`-based
+cost-variance report — this slice covers exactly what was missing:
+itemized material consumption, wastage, and entitlement handling.
+- **No new billing pipeline** — an `Expense` row with
+  `category="materials"` and `ticket_id` set already flows through the
+  cost-variance report and finance statement with zero changes to
+  either. New `MaterialUsage` (`app/models/maintenance.py`) adds
+  itemization (item/quantity/unit-cost) and decides *whether* a line
+  becomes a billable `Expense` at log time: `is_wastage=true` never
+  bills the owner regardless of the ticket's eligibility outcome
+  (wasted material is a cost the service provider absorbs); otherwise
+  an `included` ticket absorbs the cost under the owner's plan (the
+  doc's "subsidy/entitlement" concept made concrete); any other outcome
+  — or no rule at all — auto-creates an approved `Expense` plus ledger
+  entry, mirroring `create_expense`'s owner-auto-approve branch
+  (`app/modules/expenses/service.py`) exactly, with no new approval
+  workflow since the ticket already passed whatever gate it needed
+  (assignment, possibly escalation) to reach `in_progress`.
+- `log_material_usage`/`list_material_usage`
+  (`app/modules/maintenance/service.py`) reuse existing authorization
+  exactly: the same assignee-or-owner-or-admin check as
+  `start_ticket`/`resolve_ticket` for logging, `require_ticket_access`
+  for listing (so the ticket's raiser/tenant can see what was used too,
+  same visibility as the ticket's own `checklist` today).
+- New `POST`/`GET /maintenance/tickets/{id}/materials`. `ticket-detail.tsx`
+  gained a "Materials used" list (item/qty/unit cost/total, wastage
+  tag) plus a log form gated the same way as the existing resolve form
+  (assignee or manager, ticket `in_progress`).
+- **Verified against local Postgres end-to-end**: a material logged on
+  an `included` ticket creates no `Expense`; the same on a `chargeable`
+  ticket auto-creates an approved `Expense` that shows up correctly in
+  both `GET /finance/statement` and `GET /maintenance/reports/summary`'s
+  `total_actual_cost` with zero changes to either endpoint; a wastage
+  line on that same chargeable ticket creates no `Expense` despite the
+  chargeable outcome; a field_staff account not assigned to the ticket
+  gets 403, while the assignee and the owner both succeed. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
 - **Not yet deployed.**
 
 ## Local development
