@@ -20,6 +20,8 @@ class AssignRequest(BaseModel):
 
 class ResolveRequest(BaseModel):
     resolution_notes: str
+    latitude: float | None = None
+    longitude: float | None = None
 
 
 class DiagnoseRequest(BaseModel):
@@ -28,6 +30,35 @@ class DiagnoseRequest(BaseModel):
 
 class EstimateRequest(BaseModel):
     estimated_cost: float
+
+
+class StartRequest(BaseModel):
+    latitude: float | None = None
+    longitude: float | None = None
+
+
+class ChecklistTemplateIn(BaseModel):
+    category: str
+    items: list[str]
+
+
+class ChecklistTemplateUpdate(BaseModel):
+    items: list[str] | None = None
+    is_active: bool | None = None
+
+
+class ChecklistTemplateOut(BaseModel):
+    id: uuid.UUID
+    category: str
+    items: list[str]
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistItemUpdate(BaseModel):
+    item: str
+    checked: bool
 
 
 class TicketOut(BaseModel):
@@ -53,6 +84,14 @@ class TicketOut(BaseModel):
     estimated_by: uuid.UUID | None
     approved_at: datetime | None
     approved_by: uuid.UUID | None
+    checklist: dict[str, bool] | None
+    check_in_at: datetime | None
+    check_in_latitude: float | None
+    check_in_longitude: float | None
+    check_out_at: datetime | None
+    check_out_latitude: float | None
+    check_out_longitude: float | None
+    rework_count: int
 
     model_config = {"from_attributes": True}
 

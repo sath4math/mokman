@@ -7,6 +7,7 @@ from app.models.inspection import Inspection, InspectionType
 from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.maintenance import (
+    ChecklistTemplate,
     MaintenanceSchedule,
     MaintenanceTicket,
     TicketPriority,
@@ -43,6 +44,7 @@ __all__ = [
     "Base",
     "Block",
     "Building",
+    "ChecklistTemplate",
     "CommonArea",
     "ComplianceCategory",
     "ComplianceDue",

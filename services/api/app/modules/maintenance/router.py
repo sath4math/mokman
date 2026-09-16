@@ -9,27 +9,39 @@ from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.inspections.service import NotPartyToInspectionError
 from app.modules.maintenance.schemas import (
     AssignRequest,
+    ChecklistItemUpdate,
+    ChecklistTemplateIn,
+    ChecklistTemplateOut,
+    ChecklistTemplateUpdate,
     DiagnoseRequest,
     EstimateRequest,
     FieldStaffOut,
     ResolveRequest,
     SlaCheckResult,
+    StartRequest,
     TicketCreate,
     TicketOut,
 )
 from app.modules.maintenance.service import (
+    ChecklistIncompleteError,
+    ChecklistItemNotFoundError,
+    ChecklistTemplateNotFoundError,
     InvalidAssigneeError,
     InvalidTicketTransitionError,
+    MissingEvidenceError,
+    NoChecklistError,
     NotPartyToTicketError,
     NotPropertyOwnerError,
     TicketNotFoundError,
     approve_ticket,
     assign_ticket,
     close_ticket,
+    create_checklist_template,
     create_ticket,
     diagnose_ticket,
     estimate_ticket,
     get_ticket,
+    list_checklist_templates,
     list_field_staff,
     list_tickets,
     reject_estimate_ticket,
@@ -38,6 +50,8 @@ from app.modules.maintenance.service import (
     resolve_ticket,
     run_sla_check,
     start_ticket,
+    update_checklist_item,
+    update_checklist_template,
 )
 from app.modules.properties.service import PropertyNotFoundError
 
@@ -99,6 +113,66 @@ def read(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except NotPartyToTicketError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
+    return TicketOut.model_validate(ticket)
+
+
+@router.post("/checklist-templates", response_model=ChecklistTemplateOut, status_code=status.HTTP_201_CREATED)
+def create_template(
+    data: ChecklistTemplateIn,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChecklistTemplateOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    return ChecklistTemplateOut.model_validate(create_checklist_template(db, data))
+
+
+@router.get("/checklist-templates", response_model=list[ChecklistTemplateOut])
+def list_templates(
+    current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[ChecklistTemplateOut]:
+    if current.role not in ("owner", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required")
+    return [ChecklistTemplateOut.model_validate(t) for t in list_checklist_templates(db)]
+
+
+@router.patch("/checklist-templates/{template_id}", response_model=ChecklistTemplateOut)
+def update_template(
+    template_id: uuid.UUID,
+    data: ChecklistTemplateUpdate,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ChecklistTemplateOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    try:
+        template = update_checklist_template(db, template_id, data)
+    except ChecklistTemplateNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Checklist template not found") from None
+    return ChecklistTemplateOut.model_validate(template)
+
+
+@router.post("/tickets/{ticket_id}/checklist-item", response_model=TicketOut)
+def toggle_checklist_item(
+    ticket_id: uuid.UUID,
+    data: ChecklistItemUpdate,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TicketOut:
+    try:
+        ticket = update_checklist_item(db, ticket_id, current.user.id, current.role, data.item, data.checked)
+    except TicketNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    except NotPartyToTicketError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only the assignee, owner, or admin can update the checklist"
+        ) from None
+    except NoChecklistError:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This ticket has no checklist") from None
+    except ChecklistItemNotFoundError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown checklist item") from None
     return TicketOut.model_validate(ticket)
 
 
@@ -221,11 +295,12 @@ def assign(
 @router.post("/tickets/{ticket_id}/start", response_model=TicketOut)
 def start(
     ticket_id: uuid.UUID,
+    data: StartRequest = StartRequest(),
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TicketOut:
     try:
-        ticket = start_ticket(db, ticket_id, current.user.id, current.role)
+        ticket = start_ticket(db, ticket_id, current.user.id, current.role, data.latitude, data.longitude)
     except TicketNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except PropertyNotFoundError:
@@ -261,6 +336,15 @@ def resolve(
     except InvalidTicketTransitionError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Ticket must be in progress to resolve"
+        ) from None
+    except ChecklistIncompleteError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="All checklist items must be checked before resolving"
+        ) from None
+    except MissingEvidenceError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An after_photo document must be uploaded before resolving",
         ) from None
     return TicketOut.model_validate(ticket)
 

@@ -30,6 +30,11 @@ export default async function AdminOverviewPage() {
           Manage vendors →
         </Link>
       </p>
+      <p className={styles.linkRow}>
+        <Link href="/admin/checklist-templates" className={ui.linkPrimary}>
+          Manage checklist templates →
+        </Link>
+      </p>
     </>
   );
 }

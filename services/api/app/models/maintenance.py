@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, str_enum_column, uuid_pk
@@ -77,6 +77,34 @@ class MaintenanceTicket(Base, TimestampMixin):
     # cleared, same "write once" spirit as LedgerEntry.
     sla_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sla_breached_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Auto-populated from a matching ChecklistTemplate at assignment time
+    # (Phase 5b); None means no template exists for this category, which
+    # is what keeps the quality gate on resolve optional rather than
+    # mandatory for every ticket.
+    checklist: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    check_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    check_in_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_in_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    check_out_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    check_out_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rework_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ChecklistTemplate(Base, TimestampMixin):
+    """An admin-managed SOP checklist, one per ticket category.
+
+    Auto-attached to a ticket's `checklist` at assignment time — not a
+    per-ticket resource, so there's no ticket_id here.
+    """
+
+    __tablename__ = "checklist_templates"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    category: Mapped[str] = mapped_column(String(100), unique=True)
+    items: Mapped[list] = mapped_column(JSONB)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
 class MaintenanceSchedule(Base, TimestampMixin):

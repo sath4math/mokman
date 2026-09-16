@@ -11,6 +11,20 @@ import styles from "./ticket-detail.module.css";
 
 type Candidate = { value: string; label: string };
 
+function getCurrentPosition(): Promise<{ latitude: number; longitude: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+      () => resolve(null),
+      { timeout: 5000 },
+    );
+  });
+}
+
 export function TicketDetail({
   ticket: initialTicket,
   viewerRole,
@@ -95,10 +109,23 @@ export function TicketDetail({
     await post("/assign", type === "vendor" ? { assigned_vendor_id: id } : { assigned_to: id });
   }
 
+  async function handleStart() {
+    const location = await getCurrentPosition();
+    await post("/start", location ? { latitude: location.latitude, longitude: location.longitude } : undefined);
+  }
+
   async function handleResolve() {
     if (!resolutionNotes.trim()) return;
-    await post("/resolve", { resolution_notes: resolutionNotes });
+    const location = await getCurrentPosition();
+    await post("/resolve", {
+      resolution_notes: resolutionNotes,
+      ...(location ? { latitude: location.latitude, longitude: location.longitude } : {}),
+    });
     setResolutionNotes("");
+  }
+
+  async function handleToggleChecklistItem(item: string, checked: boolean) {
+    await post("/checklist-item", { item, checked });
   }
 
   async function handleDiagnose() {
@@ -175,12 +202,23 @@ export function TicketDetail({
           <h2 className={styles.sectionTitle}>{ticket.category}</h2>
           <span className={ui.flexRow}>
             {ticket.sla_breached_at && <span className={ui.badgeDanger}>SLA breached</span>}
+            {ticket.rework_count > 0 && (
+              <span className={ui.badgeDanger}>
+                Reworked {ticket.rework_count}x
+              </span>
+            )}
             <span className={ui.badge}>{ticket.status.replace(/_/g, " ")}</span>
           </span>
         </div>
         <div className={styles.meta}>
           <span className={ui.faintText}>Priority: {ticket.priority}</span>
           <p>{ticket.description}</p>
+          {ticket.check_in_at && (
+            <span className={ui.faintText}>Checked in: {new Date(ticket.check_in_at).toLocaleString()}</span>
+          )}
+          {ticket.check_out_at && (
+            <span className={ui.faintText}>Checked out: {new Date(ticket.check_out_at).toLocaleString()}</span>
+          )}
         </div>
 
         {ticket.diagnosis_notes && (
@@ -295,9 +333,26 @@ export function TicketDetail({
             </div>
           )}
 
+        {ticket.checklist && (ticket.status === "assigned" || ticket.status === "in_progress") && (
+          <div className={styles.checklist}>
+            <div className={ui.faintText}>Checklist</div>
+            {Object.entries(ticket.checklist).map(([item, checked]) => (
+              <label key={item} className={styles.checklistItem}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={busy || !(isAssignee || isManager)}
+                  onChange={(e) => handleToggleChecklistItem(item, e.target.checked)}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        )}
+
         <div className={ui.flexRow}>
           {(isAssignee || isManager) && ticket.status === "assigned" && (
-            <button type="button" onClick={() => post("/start")} disabled={busy} className={ui.btnPrimary}>
+            <button type="button" onClick={handleStart} disabled={busy} className={ui.btnPrimary}>
               Start work
             </button>
           )}
@@ -313,6 +368,12 @@ export function TicketDetail({
                   onChange={(e) => setResolutionNotes(e.target.value)}
                 />
               </label>
+              {ticket.checklist && !Object.values(ticket.checklist).every(Boolean) && (
+                <p className={ui.faintText}>Complete the checklist above before resolving.</p>
+              )}
+              {ticket.checklist && !documents.some((d) => d.document_type === "after_photo") && (
+                <p className={ui.faintText}>Upload an after-work photo below before resolving.</p>
+              )}
               <button
                 type="button"
                 onClick={handleResolve}
@@ -415,7 +476,7 @@ export function TicketDetail({
         ownerType="ticket"
         ownerId={ticket.id}
         initialDocuments={documents}
-        documentTypes={["photo", "other"]}
+        documentTypes={["before_photo", "after_photo", "photo", "other"]}
       />
     </div>
   );

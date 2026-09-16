@@ -5,14 +5,25 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
-from app.models.maintenance import MaintenanceTicket, TicketPriority, TicketStatus
+from app.models.maintenance import (
+    ChecklistTemplate,
+    MaintenanceTicket,
+    TicketPriority,
+    TicketStatus,
+)
 from app.models.property import Property
 from app.models.rbac import Role, RoleAssignment
 from app.models.user import User
 from app.models.vendor import Vendor
 from app.modules.auth.service import get_user_role
+from app.modules.documents.service import list_documents
 from app.modules.inspections.service import verify_property_access
-from app.modules.maintenance.schemas import ResolveRequest, TicketCreate
+from app.modules.maintenance.schemas import (
+    ChecklistTemplateIn,
+    ChecklistTemplateUpdate,
+    ResolveRequest,
+    TicketCreate,
+)
 from app.modules.properties.service import PropertyNotFoundError
 
 # Doc's exit gate calls for tickets "routed with SLA" — these are the
@@ -42,6 +53,26 @@ class InvalidTicketTransitionError(Exception):
 
 
 class NotPropertyOwnerError(Exception):
+    pass
+
+
+class ChecklistTemplateNotFoundError(Exception):
+    pass
+
+
+class NoChecklistError(Exception):
+    pass
+
+
+class ChecklistItemNotFoundError(Exception):
+    pass
+
+
+class ChecklistIncompleteError(Exception):
+    pass
+
+
+class MissingEvidenceError(Exception):
     pass
 
 
@@ -228,6 +259,51 @@ def reject_estimate_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID
     return ticket
 
 
+def create_checklist_template(db: Session, data: ChecklistTemplateIn) -> ChecklistTemplate:
+    template = ChecklistTemplate(category=data.category, items=data.items)
+    db.add(template)
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+def list_checklist_templates(db: Session) -> list[ChecklistTemplate]:
+    return list(db.execute(select(ChecklistTemplate).order_by(ChecklistTemplate.category)).scalars())
+
+
+def update_checklist_template(
+    db: Session, template_id: uuid.UUID, data: ChecklistTemplateUpdate
+) -> ChecklistTemplate:
+    template = db.get(ChecklistTemplate, template_id)
+    if template is None:
+        raise ChecklistTemplateNotFoundError
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(template, field, value)
+    db.commit()
+    db.refresh(template)
+    return template
+
+
+def update_checklist_item(
+    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, item: str, checked: bool
+) -> MaintenanceTicket:
+    ticket = get_ticket(db, ticket_id)
+    if role not in ("admin",) and ticket.assigned_to != user_id:
+        _require_owner_or_admin(db, ticket, user_id, role)
+
+    if ticket.checklist is None:
+        raise NoChecklistError
+    if item not in ticket.checklist:
+        raise ChecklistItemNotFoundError
+
+    checklist = dict(ticket.checklist)
+    checklist[item] = checked
+    ticket.checklist = checklist
+    db.commit()
+    db.refresh(ticket)
+    return ticket
+
+
 def assign_ticket(
     db: Session,
     ticket_id: uuid.UUID,
@@ -256,13 +332,31 @@ def assign_ticket(
         ticket.assigned_vendor_id = assigned_vendor_id
         ticket.assigned_to = None
 
+    # Auto-attach the SOP checklist for this category, if one exists.
+    # Absence is normal — most categories won't have one, and that's
+    # what keeps the resolve-time quality gate optional.
+    template = db.execute(
+        select(ChecklistTemplate).where(
+            ChecklistTemplate.category == ticket.category, ChecklistTemplate.is_active.is_(True)
+        )
+    ).scalar_one_or_none()
+    if template is not None:
+        ticket.checklist = {item: False for item in template.items}
+
     ticket.status = TicketStatus.ASSIGNED
     db.commit()
     db.refresh(ticket)
     return ticket
 
 
-def start_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str) -> MaintenanceTicket:
+def start_ticket(
+    db: Session,
+    ticket_id: uuid.UUID,
+    user_id: uuid.UUID,
+    role: str,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> MaintenanceTicket:
     ticket = get_ticket(db, ticket_id)
     if role not in ("admin",) and ticket.assigned_to != user_id:
         _require_owner_or_admin(db, ticket, user_id, role)
@@ -271,6 +365,9 @@ def start_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: st
         raise InvalidTicketTransitionError
 
     ticket.status = TicketStatus.IN_PROGRESS
+    ticket.check_in_at = datetime.now(UTC)
+    ticket.check_in_latitude = latitude
+    ticket.check_in_longitude = longitude
     db.commit()
     db.refresh(ticket)
     return ticket
@@ -286,8 +383,18 @@ def resolve_ticket(
     if ticket.status != TicketStatus.IN_PROGRESS:
         raise InvalidTicketTransitionError
 
+    if ticket.checklist is not None and not all(ticket.checklist.values()):
+        raise ChecklistIncompleteError
+
+    after_photos = list_documents(db, "ticket", ticket.id)
+    if ticket.checklist is not None and not any(d.document_type == "after_photo" for d in after_photos):
+        raise MissingEvidenceError
+
     ticket.status = TicketStatus.RESOLVED
     ticket.resolution_notes = data.resolution_notes
+    ticket.check_out_at = datetime.now(UTC)
+    ticket.check_out_latitude = data.latitude
+    ticket.check_out_longitude = data.longitude
     db.commit()
     db.refresh(ticket)
     return ticket
@@ -317,6 +424,7 @@ def reopen_ticket(db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: s
 
     ticket.status = TicketStatus.OPEN
     ticket.closed_at = None
+    ticket.rework_count += 1
     db.commit()
     db.refresh(ticket)
     return ticket

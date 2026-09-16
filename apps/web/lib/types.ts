@@ -206,6 +206,21 @@ export interface MaintenanceTicket {
   estimated_by: string | null;
   approved_at: string | null;
   approved_by: string | null;
+  checklist: Record<string, boolean> | null;
+  check_in_at: string | null;
+  check_in_latitude: number | null;
+  check_in_longitude: number | null;
+  check_out_at: string | null;
+  check_out_latitude: number | null;
+  check_out_longitude: number | null;
+  rework_count: number;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  category: string;
+  items: string[];
+  is_active: boolean;
 }
 
 export interface FieldStaffUser {
