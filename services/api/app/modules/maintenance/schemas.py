@@ -3,7 +3,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel
 
-from app.models.maintenance import TicketPriority, TicketStatus
+from app.models.maintenance import EligibilityOutcome, TicketPriority, TicketStatus
+from app.models.owner_profile import OwnerPackage
 
 
 class TicketCreate(BaseModel):
@@ -87,6 +88,28 @@ class ServiceCategoryOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ServiceEligibilityRuleIn(BaseModel):
+    service_category_id: uuid.UUID
+    package: OwnerPackage
+    outcome: EligibilityOutcome
+    notes: str | None = None
+
+
+class ServiceEligibilityRuleUpdate(BaseModel):
+    outcome: EligibilityOutcome | None = None
+    notes: str | None = None
+
+
+class ServiceEligibilityRuleOut(BaseModel):
+    id: uuid.UUID
+    service_category_id: uuid.UUID
+    package: OwnerPackage
+    outcome: EligibilityOutcome
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
 class MaintenanceSummaryOut(BaseModel):
     total_tickets: int
     closed_tickets: int
@@ -132,6 +155,7 @@ class TicketOut(BaseModel):
     warranty_expires_on: date | None
     is_repeat_failure: bool
     related_ticket_id: uuid.UUID | None
+    eligibility_outcome: EligibilityOutcome | None
 
     model_config = {"from_attributes": True}
 

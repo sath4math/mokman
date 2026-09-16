@@ -22,6 +22,9 @@ from app.modules.maintenance.schemas import (
     ServiceCategoryIn,
     ServiceCategoryOut,
     ServiceCategoryUpdate,
+    ServiceEligibilityRuleIn,
+    ServiceEligibilityRuleOut,
+    ServiceEligibilityRuleUpdate,
     SlaCheckResult,
     StartRequest,
     TicketCreate,
@@ -31,6 +34,7 @@ from app.modules.maintenance.service import (
     ChecklistIncompleteError,
     ChecklistItemNotFoundError,
     ChecklistTemplateNotFoundError,
+    EscalationApprovalRequiredError,
     InvalidAssigneeError,
     InvalidTicketTransitionError,
     MissingEvidenceError,
@@ -39,18 +43,23 @@ from app.modules.maintenance.service import (
     NotPropertyOwnerError,
     ServiceCategoryInactiveError,
     ServiceCategoryNotFoundError,
+    ServiceEligibilityRuleNotFoundError,
+    ThirdPartyRequiredError,
     TicketNotFoundError,
     approve_ticket,
     assign_ticket,
     close_ticket,
     create_checklist_template,
+    create_eligibility_rule,
     create_service_category,
     create_ticket,
+    delete_eligibility_rule,
     diagnose_ticket,
     estimate_ticket,
     get_maintenance_summary,
     get_ticket,
     list_checklist_templates,
+    list_eligibility_rules,
     list_field_staff,
     list_service_categories,
     list_tickets,
@@ -62,6 +71,7 @@ from app.modules.maintenance.service import (
     start_ticket,
     update_checklist_item,
     update_checklist_template,
+    update_eligibility_rule,
     update_service_category,
 )
 from app.modules.properties.service import (
@@ -210,6 +220,58 @@ def update_category(
     return ServiceCategoryOut.model_validate(category)
 
 
+@router.post("/eligibility-rules", response_model=ServiceEligibilityRuleOut, status_code=status.HTTP_201_CREATED)
+def create_rule(
+    data: ServiceEligibilityRuleIn,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ServiceEligibilityRuleOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    return ServiceEligibilityRuleOut.model_validate(create_eligibility_rule(db, data))
+
+
+@router.get("/eligibility-rules", response_model=list[ServiceEligibilityRuleOut])
+def list_rules(
+    service_category_id: uuid.UUID | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[ServiceEligibilityRuleOut]:
+    if current.role not in ("owner", "admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required")
+    return [ServiceEligibilityRuleOut.model_validate(r) for r in list_eligibility_rules(db, service_category_id)]
+
+
+@router.patch("/eligibility-rules/{rule_id}", response_model=ServiceEligibilityRuleOut)
+def update_rule(
+    rule_id: uuid.UUID,
+    data: ServiceEligibilityRuleUpdate,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ServiceEligibilityRuleOut:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    try:
+        rule = update_eligibility_rule(db, rule_id, data)
+    except ServiceEligibilityRuleNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Eligibility rule not found") from None
+    return ServiceEligibilityRuleOut.model_validate(rule)
+
+
+@router.delete("/eligibility-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_rule(
+    rule_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    try:
+        delete_eligibility_rule(db, rule_id)
+    except ServiceEligibilityRuleNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Eligibility rule not found") from None
+
+
 @router.post("/tickets/{ticket_id}/checklist-item", response_model=TicketOut)
 def toggle_checklist_item(
     ticket_id: uuid.UUID,
@@ -346,6 +408,16 @@ def assign(
     except InvalidTicketTransitionError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Ticket cannot be assigned in its current status"
+        ) from None
+    except EscalationApprovalRequiredError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This ticket requires owner approval before assignment — diagnose, estimate, and approve it first",
+        ) from None
+    except ThirdPartyRequiredError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This service must be assigned to a vendor, not internal field staff, under the owner's plan",
         ) from None
     return TicketOut.model_validate(ticket)
 

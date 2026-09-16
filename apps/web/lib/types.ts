@@ -220,6 +220,7 @@ export interface MaintenanceTicket {
   warranty_expires_on: string | null;
   is_repeat_failure: boolean;
   related_ticket_id: string | null;
+  eligibility_outcome: EligibilityOutcome | null;
 }
 
 export interface ChecklistTemplate {
@@ -235,6 +236,16 @@ export interface ServiceCategory {
   default_priority: TicketPriority;
   estimated_completion_hours: number | null;
   is_active: boolean;
+}
+
+export type EligibilityOutcome = "included" | "chargeable" | "third_party" | "out_of_scope" | "escalate";
+
+export interface ServiceEligibilityRule {
+  id: string;
+  service_category_id: string;
+  package: OwnerPackage;
+  outcome: EligibilityOutcome;
+  notes: string | null;
 }
 
 export interface FieldStaffUser {

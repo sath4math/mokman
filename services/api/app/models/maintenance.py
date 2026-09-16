@@ -2,11 +2,22 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, str_enum_column, uuid_pk
+from app.models.owner_profile import OwnerPackage
 
 
 class TicketStatus(str, enum.Enum):
@@ -25,6 +36,14 @@ class TicketPriority(str, enum.Enum):
     MEDIUM = "medium"
     HIGH = "high"
     URGENT = "urgent"
+
+
+class EligibilityOutcome(str, enum.Enum):
+    INCLUDED = "included"
+    CHARGEABLE = "chargeable"
+    THIRD_PARTY = "third_party"
+    OUT_OF_SCOPE = "out_of_scope"
+    ESCALATE = "escalate"
 
 
 class MaintenanceTicket(Base, TimestampMixin):
@@ -101,6 +120,13 @@ class MaintenanceTicket(Base, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("maintenance_tickets.id"), nullable=True
     )
 
+    # Resolved at creation from a ServiceEligibilityRule matching this
+    # ticket's category + the owner's package (Phase 6b). None means no
+    # rule matched — optional, same principle as checklist/warranty.
+    eligibility_outcome: Mapped[EligibilityOutcome | None] = mapped_column(
+        str_enum_column(EligibilityOutcome, "eligibility_outcome"), nullable=True
+    )
+
 
 class ServiceCategory(Base, TimestampMixin):
     """An admin-managed reference entry for a ticket `category` string.
@@ -121,6 +147,28 @@ class ServiceCategory(Base, TimestampMixin):
     )
     estimated_completion_hours: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ServiceEligibilityRule(Base, TimestampMixin):
+    """A configurable (category, owner package) -> outcome rule.
+
+    The doc's own guidance: "build it as configurable rules/policies,
+    not hardcoded conditionals." One row per (service_category, package)
+    pair; a ticket whose category+package has no row here is simply left
+    with no eligibility_outcome — the engine only ever adds information/
+    gates for combinations someone has actually configured.
+    """
+
+    __tablename__ = "service_eligibility_rules"
+    __table_args__ = (UniqueConstraint("service_category_id", "package", name="uq_eligibility_category_package"),)
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    service_category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("service_categories.id"), index=True
+    )
+    package: Mapped[OwnerPackage] = mapped_column(str_enum_column(OwnerPackage, "owner_package"))
+    outcome: Mapped[EligibilityOutcome] = mapped_column(str_enum_column(EligibilityOutcome, "eligibility_outcome"))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ChecklistTemplate(Base, TimestampMixin):

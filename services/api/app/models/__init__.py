@@ -8,9 +8,11 @@ from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.maintenance import (
     ChecklistTemplate,
+    EligibilityOutcome,
     MaintenanceSchedule,
     MaintenanceTicket,
     ServiceCategory,
+    ServiceEligibilityRule,
     TicketPriority,
     TicketStatus,
 )
@@ -51,6 +53,7 @@ __all__ = [
     "ComplianceCategory",
     "ComplianceDue",
     "Document",
+    "EligibilityOutcome",
     "Expense",
     "ExpenseStatus",
     "Floor",
@@ -76,6 +79,7 @@ __all__ = [
     "RoleAssignment",
     "Room",
     "ServiceCategory",
+    "ServiceEligibilityRule",
     "StorageUnit",
     "TenantProfile",
     "TenantVerificationStatus",

@@ -8,11 +8,14 @@ from app.models.audit import AuditLog
 from app.models.expense import Expense
 from app.models.maintenance import (
     ChecklistTemplate,
+    EligibilityOutcome,
     MaintenanceTicket,
     ServiceCategory,
+    ServiceEligibilityRule,
     TicketPriority,
     TicketStatus,
 )
+from app.models.owner_profile import OwnerPackage, OwnerProfile
 from app.models.property import Property
 from app.models.rbac import Role, RoleAssignment
 from app.models.user import User
@@ -27,6 +30,8 @@ from app.modules.maintenance.schemas import (
     ResolveRequest,
     ServiceCategoryIn,
     ServiceCategoryUpdate,
+    ServiceEligibilityRuleIn,
+    ServiceEligibilityRuleUpdate,
     TicketCreate,
 )
 from app.modules.properties.service import PropertyNotFoundError
@@ -89,6 +94,30 @@ class ServiceCategoryInactiveError(Exception):
     pass
 
 
+class ServiceEligibilityRuleNotFoundError(Exception):
+    pass
+
+
+class EscalationApprovalRequiredError(Exception):
+    pass
+
+
+class ThirdPartyRequiredError(Exception):
+    pass
+
+
+def _resolve_eligibility(
+    db: Session, service_category_id: uuid.UUID, package: OwnerPackage
+) -> EligibilityOutcome | None:
+    rule = db.execute(
+        select(ServiceEligibilityRule).where(
+            ServiceEligibilityRule.service_category_id == service_category_id,
+            ServiceEligibilityRule.package == package,
+        )
+    ).scalar_one_or_none()
+    return rule.outcome if rule else None
+
+
 def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> MaintenanceTicket:
     verify_property_access(db, data.property_id, user_id)
 
@@ -107,6 +136,13 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
     else:
         sla_hours = PRIORITY_SLA_HOURS[priority]
 
+    eligibility_outcome = None
+    if service_category is not None:
+        property_ = db.get(Property, data.property_id)
+        owner_profile = db.get(OwnerProfile, property_.owner_id) if property_ else None
+        owner_package = owner_profile.package if owner_profile else OwnerPackage.STARTER
+        eligibility_outcome = _resolve_eligibility(db, service_category.id, owner_package)
+
     now = datetime.now(UTC)
     ticket = MaintenanceTicket(
         property_id=data.property_id,
@@ -115,6 +151,7 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
         priority=priority,
         raised_by=user_id,
         sla_due_at=now + timedelta(hours=sla_hours),
+        eligibility_outcome=eligibility_outcome,
     )
 
     # Repeat-failure detection: a prior closed ticket on the same
@@ -357,6 +394,44 @@ def update_service_category(
     return category
 
 
+def create_eligibility_rule(db: Session, data: ServiceEligibilityRuleIn) -> ServiceEligibilityRule:
+    rule = ServiceEligibilityRule(**data.model_dump())
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+def list_eligibility_rules(
+    db: Session, service_category_id: uuid.UUID | None
+) -> list[ServiceEligibilityRule]:
+    stmt = select(ServiceEligibilityRule)
+    if service_category_id is not None:
+        stmt = stmt.where(ServiceEligibilityRule.service_category_id == service_category_id)
+    return list(db.execute(stmt).scalars())
+
+
+def update_eligibility_rule(
+    db: Session, rule_id: uuid.UUID, data: ServiceEligibilityRuleUpdate
+) -> ServiceEligibilityRule:
+    rule = db.get(ServiceEligibilityRule, rule_id)
+    if rule is None:
+        raise ServiceEligibilityRuleNotFoundError
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(rule, field, value)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+def delete_eligibility_rule(db: Session, rule_id: uuid.UUID) -> None:
+    rule = db.get(ServiceEligibilityRule, rule_id)
+    if rule is None:
+        raise ServiceEligibilityRuleNotFoundError
+    db.delete(rule)
+    db.commit()
+
+
 def update_checklist_item(
     db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, item: str, checked: bool
 ) -> MaintenanceTicket:
@@ -390,12 +465,20 @@ def assign_ticket(
 
     if ticket.status not in (TicketStatus.OPEN, TicketStatus.APPROVED, TicketStatus.ASSIGNED):
         raise InvalidTicketTransitionError
+    # A ticket needing escalation can't take the direct open->assigned
+    # shortcut — it has to go through 5a's diagnose->estimate->approve
+    # chain first. APPROVED/ASSIGNED are unaffected, so a ticket that
+    # already went through that chain assigns exactly as it does today.
+    if ticket.eligibility_outcome == EligibilityOutcome.ESCALATE and ticket.status == TicketStatus.OPEN:
+        raise EscalationApprovalRequiredError
     if (assigned_to is None) == (assigned_vendor_id is None):
         raise InvalidAssigneeError
 
     if assigned_to is not None:
         if get_user_role(db, assigned_to) != "field_staff":
             raise InvalidAssigneeError
+        if ticket.eligibility_outcome == EligibilityOutcome.THIRD_PARTY:
+            raise ThirdPartyRequiredError
         ticket.assigned_to = assigned_to
         ticket.assigned_vendor_id = None
     else:

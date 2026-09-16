@@ -40,6 +40,11 @@ export default async function AdminOverviewPage() {
           Manage service categories →
         </Link>
       </p>
+      <p className={styles.linkRow}>
+        <Link href="/admin/eligibility-rules" className={ui.linkPrimary}>
+          Manage eligibility rules →
+        </Link>
+      </p>
     </>
   );
 }

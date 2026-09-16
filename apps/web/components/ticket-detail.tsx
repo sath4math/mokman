@@ -207,6 +207,12 @@ export function TicketDetail({
                 Reworked {ticket.rework_count}x
               </span>
             )}
+            {ticket.eligibility_outcome === "escalate" && (
+              <span className={ui.badgeDanger}>Escalation required</span>
+            )}
+            {ticket.eligibility_outcome && ticket.eligibility_outcome !== "escalate" && (
+              <span className={ui.badge}>{ticket.eligibility_outcome.replace(/_/g, " ")}</span>
+            )}
             <span className={ui.badge}>{ticket.status.replace(/_/g, " ")}</span>
           </span>
         </div>
