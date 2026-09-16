@@ -354,7 +354,7 @@ building them now would mean redoing them once Phase 5 formalizes the
 surrounding diagnosis→estimate→quality-check→warranty workflow around
 them.
 
-### 🧱 Phase 5a — Diagnosis → Estimate → Approval (implemented, verified locally — not yet deployed)
+### 🧱 Phase 5a — Diagnosis → Estimate → Approval (deployed; owner+tenant flows not yet re-verified in prod)
 Phase 5 ("Mokman Managed Services") is the same size class Phase 4 was
 (8-10 weeks per the doc) before that got split, so it gets the same
 sequential-slice treatment. The user chose to start with just the
@@ -395,13 +395,73 @@ catalog) builds on top of.
   on diagnosis/estimate/approval (the clock keeps running unchanged — a
   real limitation, flagged rather than silently accepted), no
   service-category catalog, no checklists/warranty/reporting.
-- **Not yet deployed.** Verified against local Postgres end-to-end: the
-  simple `open → assign` path is unaffected; the full admin-diagnoses →
+- **Deployed.** Verified against local Postgres end-to-end: the simple
+  `open → assign` path is unaffected; the full admin-diagnoses →
   admin-estimates → owner-approves chain works with each guard rail
   (early assignment 409s, admin-approve 403s) firing correctly; owner
   self-estimate auto-approves in one call; reject-estimate returns a
   ticket to `open` and it's re-assignable immediately. Plus local
-  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed to `main` and
+  confirmed live in prod (`/diagnose`/`/estimate`/`/approve`/
+  `/reject-estimate` present in `openapi.json`) — route-existence
+  verification only, same gap as every phase since 4b.
+
+### 🧱 Phase 5b — Quality Control: checklists, check-in/out, evidence, rework (implemented, verified locally — not yet deployed)
+Continues Phase 5's sequential-slice split. This covers the
+"in-the-moment, per-job" half of the doc's quality-control bullet:
+**SOPs/checklists, technician check-in/out, before/after evidence,
+rework tracking.** Warranty + repeat-failure + cost-variance monitoring
+are held for 5c, which needs real historical/reporting infrastructure
+per the doc's own technical note — a different kind of build than this
+slice, which (like 5a) is entirely "extend the existing ticket
+lifecycle, reuse aggressively."
+- **Checklists reuse `Inspection.checklist`'s exact JSONB-dict shape**
+  (`app/models/inspection.py`) rather than a new items table. New
+  `ChecklistTemplate` (admin-managed, one per ticket `category`) is
+  auto-attached to `MaintenanceTicket.checklist` the moment
+  `assign_ticket` runs, if a template matches that category — verified a
+  `hvac` template's three items landed on a freshly-assigned ticket
+  automatically.
+- **Optional, not mandatory — same principle as 5a's cost gate.** A
+  category with no template resolves exactly as it always has, gate-free
+  (verified explicitly: assigning/starting/resolving a `other`-category
+  ticket with zero checklist and zero evidence succeeded normally).
+- **Quality gate on resolve, when a checklist exists**: every item must
+  be checked (`ChecklistIncompleteError` → 409) **and** at least one
+  `Document` with `document_type="after_photo"` must exist against the
+  ticket (`MissingEvidenceError` → 409), checked via the **existing**
+  `documents.service.list_documents` — zero new document-module code,
+  same trick 4c used for NOCs. Verified both gates fire independently
+  (checklist-complete-but-no-photo still blocks), then both succeed
+  together.
+- **GPS check-in/out folded into the existing `start`/`resolve`
+  endpoints** as optional `latitude`/`longitude` (captured client-side
+  via the browser's native Geolocation API, never blocking the action on
+  permission denial) rather than new endpoints or a new dependency —
+  also the first time these transitions get timestamped at all
+  (`check_in_at`/`check_out_at`). Verified coordinates round-trip
+  correctly on both ends.
+- **Rework tracking is just a counter**: `reopen_ticket` (already
+  `CLOSED`-only) increments `rework_count` — reopening a closed ticket
+  already only happens when finished work turns out unsatisfactory, so
+  no separate tracking mechanism was needed. Verified it increments on
+  reopen.
+- **Backward compatibility preserved deliberately**: `start`'s body
+  changed from none to an all-optional `StartRequest`, defaulted in the
+  router (`data: StartRequest = StartRequest()`) so a bodyless call (like
+  any client that hasn't been updated) still works — verified directly.
+- New admin screen `/admin/checklist-templates`. `ticket-detail.tsx`
+  gained inline checklist checkboxes, rework/check-in/out display, and
+  the document vault's `documentTypes` for tickets grew
+  `before_photo`/`after_photo`.
+- **Known UI staleness, not a functional gap**: the "complete the
+  checklist" / "upload a photo" hints shown while resolving read from a
+  page-load snapshot of documents, not a live count — if evidence is
+  uploaded without a page refresh the hint won't update, but the actual
+  resolve call still re-checks live and enforces correctly regardless.
+- **Not yet deployed.** Verified against local Postgres end-to-end (see
+  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
+  `build`.
 
 ## Local development
 
