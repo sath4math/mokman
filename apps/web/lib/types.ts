@@ -1,6 +1,7 @@
 export type OwnershipType = "single" | "joint";
 export type KycStatus = "pending" | "verified" | "rejected";
 export type PropertyStatus = "vacant" | "occupied" | "under_maintenance" | "inactive";
+export type OwnerPackage = "starter" | "managed" | "full_care" | "complete";
 
 export interface OwnerProfile {
   pan_number: string | null;
@@ -17,6 +18,7 @@ export interface OwnerProfile {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   kyc_status: KycStatus;
+  package: OwnerPackage;
 }
 
 export interface AuthorizedRepresentative {

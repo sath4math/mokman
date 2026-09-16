@@ -2,7 +2,7 @@ import uuid
 
 from pydantic import BaseModel
 
-from app.models.owner_profile import KycStatus, OwnershipType
+from app.models.owner_profile import KycStatus, OwnerPackage, OwnershipType
 
 
 class OwnerProfileIn(BaseModel):
@@ -19,6 +19,7 @@ class OwnerProfileIn(BaseModel):
     nominee_phone: str | None = None
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
+    package: OwnerPackage = OwnerPackage.STARTER
 
 
 class OwnerProfileOut(OwnerProfileIn):

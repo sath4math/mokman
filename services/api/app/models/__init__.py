@@ -17,6 +17,7 @@ from app.models.maintenance import (
 from app.models.owner_profile import (
     AuthorizedRepresentative,
     KycStatus,
+    OwnerPackage,
     OwnerProfile,
     OwnershipType,
 )
@@ -63,6 +64,7 @@ __all__ = [
     "LedgerEntryType",
     "MaintenanceSchedule",
     "MaintenanceTicket",
+    "OwnerPackage",
     "OwnerProfile",
     "OwnershipType",
     "ParkingSpot",

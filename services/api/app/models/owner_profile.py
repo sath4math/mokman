@@ -19,6 +19,20 @@ class KycStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class OwnerPackage(str, enum.Enum):
+    """The four Owner Package tiers from the product spec (Section 3.1).
+
+    Phase 6a: data only, no enforcement — every feature built in Phases
+    1-5 works identically regardless of this value. Eligibility rules
+    that actually read it are a later phase's job.
+    """
+
+    STARTER = "starter"
+    MANAGED = "managed"
+    FULL_CARE = "full_care"
+    COMPLETE = "complete"
+
+
 class OwnerProfile(Base, TimestampMixin):
     """KYC, bank, and ownership details for a user with the owner role.
 
@@ -53,6 +67,9 @@ class OwnerProfile(Base, TimestampMixin):
     emergency_contact_phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     kyc_status: Mapped[KycStatus] = mapped_column(str_enum_column(KycStatus, "kyc_status"), default=KycStatus.PENDING)
+    package: Mapped[OwnerPackage] = mapped_column(
+        str_enum_column(OwnerPackage, "owner_package"), default=OwnerPackage.STARTER
+    )
 
 
 class AuthorizedRepresentative(Base, TimestampMixin):

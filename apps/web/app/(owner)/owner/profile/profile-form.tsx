@@ -23,6 +23,14 @@ const EMPTY_PROFILE: OwnerProfile = {
   emergency_contact_name: "",
   emergency_contact_phone: "",
   kyc_status: "pending",
+  package: "starter",
+};
+
+const PACKAGE_LABELS: Record<OwnerProfile["package"], string> = {
+  starter: "Starter — self-serve digital record-keeping",
+  managed: "Managed — rent handled for you",
+  full_care: "Full Care — full operations handled for you",
+  complete: "Complete — everything, including in-house workforce & intelligence",
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -102,6 +110,23 @@ export function ProfileForm({
   return (
     <div className={styles.formWrapper}>
       <form onSubmit={handleSubmit} className={styles.form}>
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Plan</h2>
+          <Field label="Package">
+            <select
+              className={ui.select}
+              value={profile.package}
+              onChange={(e) => set("package", e.target.value as OwnerProfile["package"])}
+            >
+              {Object.entries(PACKAGE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </section>
+
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>KYC</h2>
           <Field label="PAN number">
