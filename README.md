@@ -342,6 +342,67 @@ only ever be a bonus.
   above) — this still carries the same route-existence-only
   prod-verification caveat as 4b/4c for everything else in this phase.
 
+### ✅ Phase 4 — Property Operations: complete (4a-4d, exit gate met)
+Phase 4's own exit gate — *"a maintenance issue can be raised by anyone,
+routed with SLA, assigned to a vendor or technician who works offline in
+the field, closed with evidence, and invoiced, with an owner able to see
+the whole trail"* — is now fully satisfied across 4a-4d. Still
+deliberately outside scope: the Field Staff App's checklists/GPS
+check-in-out/material-usage tracking, since those overlap with Phase 5's
+own "SOPs, checklists, technician check-in/out" quality-control scope —
+building them now would mean redoing them once Phase 5 formalizes the
+surrounding diagnosis→estimate→quality-check→warranty workflow around
+them.
+
+### 🧱 Phase 5a — Diagnosis → Estimate → Approval (implemented, verified locally — not yet deployed)
+Phase 5 ("Mokman Managed Services") is the same size class Phase 4 was
+(8-10 weeks per the doc) before that got split, so it gets the same
+sequential-slice treatment. The user chose to start with just the
+diagnosis→estimate→approval piece — the state-machine change everything
+else in Phase 5 (quality control, warranty/reporting, the service
+catalog) builds on top of.
+- `MaintenanceTicket`'s lifecycle gains an **optional** pre-assignment
+  chain: `open → diagnosed → estimated → approved → assigned → ...`
+  (`app/models/maintenance.py`). Optional, not mandatory — a ticket can
+  still go straight `open → assigned` exactly as it always has for
+  simple jobs; forcing a lightbulb-replacement through three approval
+  steps would contradict this project's own proportionate-slice ethos
+  and would've been a breaking change to every existing 4a-4d flow.
+- `estimated_cost` is a **quote gating assignment, not a financial
+  transaction** — the actual `Expense`/ledger entry is still recorded
+  post-hoc through the existing Phase 3 flow once work is done,
+  unchanged. Keeps 4a's own stated principle intact: no parallel
+  accounting pipeline.
+- Owner-auto-approve mirrors `create_expense`'s exact pattern
+  (`expenses/service.py`'s `is_owner_of_property` branch): if the
+  *owner* estimates their own ticket, it's auto-approved in the same
+  call (there's no one else to approve it from). If *admin* estimates on
+  the owner's behalf, it lands in a real pending state that only the
+  **property owner** can approve or reject — no admin bypass, mirroring
+  `approve_expense`'s `_require_property_owner` exactly (verified: admin
+  attempting to approve its own submitted estimate correctly 403s).
+- Rejecting an estimate (`POST .../reject-estimate`, owner-only) drops
+  the ticket back to `open` — verified it's then immediately assignable
+  again directly, confirming the cost gate is genuinely optional/
+  escapable, not a one-way trap.
+- Four new endpoints: `POST /maintenance/tickets/{id}/diagnose`,
+  `.../estimate`, `.../approve`, `.../reject-estimate`. `assign_ticket`'s
+  allowed-from-status check gained `APPROVED` alongside the existing
+  `OPEN`/`ASSIGNED` — the only change to previously-existing logic.
+- **Explicitly not in this slice** (later 5b/5c/5d): no before/after
+  evidence requirement on diagnosis (the ticket's existing document
+  vault already covers photos), no SLA-clock pause while a ticket waits
+  on diagnosis/estimate/approval (the clock keeps running unchanged — a
+  real limitation, flagged rather than silently accepted), no
+  service-category catalog, no checklists/warranty/reporting.
+- **Not yet deployed.** Verified against local Postgres end-to-end: the
+  simple `open → assign` path is unaffected; the full admin-diagnoses →
+  admin-estimates → owner-approves chain works with each guard rail
+  (early assignment 409s, admin-approve 403s) firing correctly; owner
+  self-estimate auto-approves in one call; reject-estimate returns a
+  ticket to `open` and it's re-assignable immediately. Plus local
+  `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+
 ## Local development
 
 ```powershell
