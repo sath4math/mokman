@@ -11,6 +11,7 @@ class MaintenanceScheduleCreate(BaseModel):
     last_serviced_on: date | None = None
     warranty_expires_on: date | None = None
     notes: str | None = None
+    asset_id: uuid.UUID | None = None
 
 
 class LogServiceRequest(BaseModel):
@@ -28,5 +29,6 @@ class MaintenanceScheduleOut(BaseModel):
     warranty_expires_on: date | None
     notes: str | None
     is_active: bool
+    asset_id: uuid.UUID | None
 
     model_config = {"from_attributes": True}

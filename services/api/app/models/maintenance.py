@@ -133,6 +133,11 @@ class MaintenanceTicket(Base, TimestampMixin):
     # entitlement" are separate facts.
     fair_use_breached: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Optional link to the specific Asset this ticket repairs (Phase 8a)
+    # -- None means the ticket isn't tied to a tracked asset, which is
+    # how every ticket behaved before this column existed.
+    asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)
+
 
 class ServiceCategory(Base, TimestampMixin):
     """An admin-managed reference entry for a ticket `category` string.
@@ -245,3 +250,8 @@ class MaintenanceSchedule(Base, TimestampMixin):
     warranty_expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Optional link to the specific Asset this schedule services (Phase
+    # 8a) -- None means it's scoped to the property/category only, same
+    # as every schedule before this column existed.
+    asset_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("assets.id"), nullable=True)

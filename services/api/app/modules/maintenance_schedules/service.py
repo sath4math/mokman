@@ -40,6 +40,7 @@ def create_schedule(
         next_due_on=_compute_next_due(base, data.frequency_days),
         warranty_expires_on=data.warranty_expires_on,
         notes=data.notes,
+        asset_id=data.asset_id,
     )
     db.add(schedule)
     db.commit()

@@ -1,9 +1,11 @@
+from app.models.asset import Asset
 from app.models.audit import AuditLog
 from app.models.base import Base
 from app.models.compliance import ComplianceCategory, ComplianceDue
 from app.models.document import Document
 from app.models.expense import Expense, ExpenseStatus
 from app.models.inspection import Inspection, InspectionType
+from app.models.insurance import ClaimStatus, InsuranceClaim, InsurancePolicy
 from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.maintenance import (
@@ -44,12 +46,14 @@ from app.models.utility import UtilityBill, UtilityConnection, UtilityResponsibi
 from app.models.vendor import Vendor, VendorRateCard, VendorRating
 
 __all__ = [
+    "Asset",
     "AuditLog",
     "AuthorizedRepresentative",
     "Base",
     "Block",
     "Building",
     "ChecklistTemplate",
+    "ClaimStatus",
     "CommonArea",
     "ComplianceCategory",
     "ComplianceDue",
@@ -60,6 +64,8 @@ __all__ = [
     "Floor",
     "Inspection",
     "InspectionType",
+    "InsuranceClaim",
+    "InsurancePolicy",
     "InvoiceStatus",
     "KycStatus",
     "Lease",

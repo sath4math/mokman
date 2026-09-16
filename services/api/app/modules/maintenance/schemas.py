@@ -12,6 +12,7 @@ class TicketCreate(BaseModel):
     category: str
     description: str
     priority: TicketPriority | None = None
+    asset_id: uuid.UUID | None = None
 
 
 class AssignRequest(BaseModel):
@@ -195,6 +196,7 @@ class TicketOut(BaseModel):
     related_ticket_id: uuid.UUID | None
     eligibility_outcome: EligibilityOutcome | None
     fair_use_breached: bool
+    asset_id: uuid.UUID | None
 
     model_config = {"from_attributes": True}
 

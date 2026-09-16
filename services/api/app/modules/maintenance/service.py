@@ -192,6 +192,7 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
         sla_due_at=now + timedelta(hours=sla_hours),
         eligibility_outcome=eligibility_outcome,
         fair_use_breached=fair_use_breached,
+        asset_id=data.asset_id,
     )
 
     # Repeat-failure detection: a prior closed ticket on the same

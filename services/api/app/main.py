@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.assets.router import router as assets_router
 from app.modules.assistant.router import router as assistant_router
 from app.modules.auth.router import router as auth_router
 from app.modules.compliance.router import router as compliance_router
@@ -8,6 +9,7 @@ from app.modules.documents.router import router as documents_router
 from app.modules.expenses.router import router as expenses_router
 from app.modules.finance.router import router as finance_router
 from app.modules.inspections.router import router as inspections_router
+from app.modules.insurance.router import router as insurance_router
 from app.modules.leases.router import router as leases_router
 from app.modules.maintenance.router import internal_router as maintenance_internal_router
 from app.modules.maintenance.router import router as maintenance_router
@@ -45,6 +47,8 @@ app.include_router(maintenance_schedules_router)
 app.include_router(utilities_router)
 app.include_router(compliance_router)
 app.include_router(assistant_router)
+app.include_router(assets_router)
+app.include_router(insurance_router)
 app.include_router(maintenance_internal_router)
 
 

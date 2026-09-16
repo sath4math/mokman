@@ -4,9 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document
+from app.modules.assets.service import get_asset
 from app.modules.documents.schemas import DocumentConfirm
 from app.modules.inspections.service import get_inspection
 from app.modules.inspections.service import require_party as require_inspection_party
+from app.modules.insurance.service import get_policy
 from app.modules.leases.service import get_lease
 from app.modules.leases.service import require_party as require_lease_party
 from app.modules.properties.service import get_owned_property
@@ -44,6 +46,12 @@ def verify_document_access(db: Session, user_id: uuid.UUID, role: str, owner_typ
 
         ticket = get_ticket(db, owner_id)
         require_ticket_access(db, ticket, user_id, role)
+    elif owner_type == "asset":
+        asset = get_asset(db, owner_id)
+        get_owned_property(db, user_id, asset.property_id)
+    elif owner_type == "insurance_policy":
+        policy = get_policy(db, owner_id)
+        get_owned_property(db, user_id, policy.property_id)
     else:
         raise UnsupportedDocumentOwnerTypeError
 

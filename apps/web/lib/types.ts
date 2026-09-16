@@ -255,6 +255,7 @@ export interface MaintenanceTicket {
   related_ticket_id: string | null;
   eligibility_outcome: EligibilityOutcome | null;
   fair_use_breached: boolean;
+  asset_id: string | null;
 }
 
 export interface ChecklistTemplate {
@@ -361,6 +362,51 @@ export interface MaintenanceSchedule {
   warranty_expires_on: string | null;
   notes: string | null;
   is_active: boolean;
+  asset_id: string | null;
+}
+
+export interface Asset {
+  id: string;
+  property_id: string;
+  category: string;
+  name: string;
+  purchase_date: string | null;
+  purchase_cost: number | null;
+  vendor_id: string | null;
+  warranty_expires_on: string | null;
+  useful_life_years: number | null;
+  is_active: boolean;
+  disposed_reason: string | null;
+  replaced_by_asset_id: string | null;
+  current_value: number | null;
+}
+
+export type ClaimStatus = "filed" | "under_review" | "approved" | "rejected" | "settled";
+
+export interface InsurancePolicy {
+  id: string;
+  property_id: string;
+  policy_number: string;
+  insurer_name: string;
+  category: string;
+  premium_amount: number;
+  premium_due_date: string | null;
+  coverage_amount: number | null;
+  start_date: string;
+  end_date: string;
+  is_active: boolean;
+}
+
+export interface InsuranceClaim {
+  id: string;
+  policy_id: string;
+  incident_date: string;
+  description: string;
+  claim_amount: number;
+  status: ClaimStatus;
+  surveyor_name: string | null;
+  settlement_amount: number | null;
+  settled_at: string | null;
 }
 
 export type UtilityResponsibility = "owner" | "tenant";

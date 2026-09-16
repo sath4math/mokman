@@ -5,10 +5,12 @@ import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
 import type {
+  Asset,
   ComplianceDue,
   DocumentRecord,
   Expense,
   Inspection,
+  InsurancePolicy,
   Lease,
   MaintenanceSchedule,
   MaintenanceTicket,
@@ -20,9 +22,11 @@ import type {
 } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
+import { AssetsPanel } from "./assets-panel";
 import { CompliancePanel } from "./compliance-panel";
 import { ExpensesPanel } from "./expenses-panel";
 import { InspectionsPanel } from "./inspections-panel";
+import { InsurancePanel } from "./insurance-panel";
 import { PreventiveMaintenancePanel } from "./preventive-maintenance-panel";
 import styles from "./property-detail.module.css";
 import { TicketsPanel } from "./tickets-panel";
@@ -50,6 +54,8 @@ export default async function PropertyDetailPage({
     inspections,
     serviceCategories,
     healthScore,
+    assets,
+    insurancePolicies,
   ] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
@@ -63,6 +69,8 @@ export default async function PropertyDetailPage({
     backendFetch<Inspection[]>(`/inspections?property_id=${id}`),
     backendFetch<ServiceCategory[]>("/maintenance/service-categories?active_only=true"),
     backendFetch<PropertyHealthScore>(`/properties/${id}/health-score`),
+    backendFetch<Asset[]>(`/assets?property_id=${id}`),
+    backendFetch<InsurancePolicy[]>(`/insurance/policies?property_id=${id}`),
   ]);
 
   if (!property) notFound();
@@ -192,6 +200,10 @@ export default async function PropertyDetailPage({
       <CompliancePanel propertyId={property.id} initialDues={complianceDues ?? []} />
 
       <InspectionsPanel propertyId={property.id} initialInspections={inspections ?? []} />
+
+      <AssetsPanel propertyId={property.id} initialAssets={assets ?? []} />
+
+      <InsurancePanel propertyId={property.id} initialPolicies={insurancePolicies ?? []} />
 
       <DocumentVault
         ownerType="property"

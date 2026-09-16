@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.common.llm import AssistantNotConfiguredError
 from app.database import get_db
+from app.modules.assets.service import AssetNotFoundError
 from app.modules.assistant.schemas import AssistantAskIn, AssistantAskOut
 from app.modules.assistant.service import (
     NoInspectionPhotosError,
@@ -16,6 +17,7 @@ from app.modules.assistant.service import (
 from app.modules.auth.dependencies import CurrentUser, get_current_user
 from app.modules.documents.service import DocumentNotFoundError, UnsupportedDocumentOwnerTypeError
 from app.modules.inspections.service import InspectionNotFoundError, NotPartyToInspectionError
+from app.modules.insurance.service import InsurancePolicyNotFoundError
 from app.modules.leases.service import LeaseNotFoundError, NotPartyToLeaseError
 from app.modules.maintenance.service import NotPartyToTicketError, TicketNotFoundError
 from app.modules.properties.service import PropertyNotFoundError
@@ -67,6 +69,10 @@ def ask_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except NotPartyToTicketError:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a party to this ticket") from None
+    except AssetNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found") from None
+    except InsurancePolicyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found") from None
     except UnsupportedDocumentOwnerTypeError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported document owner type") from None
     except UnsupportedDocumentTypeError:
