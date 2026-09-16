@@ -1,8 +1,8 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -56,3 +56,26 @@ class MaintenanceTicket(Base, TimestampMixin):
     )
     resolution_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MaintenanceSchedule(Base, TimestampMixin):
+    """A recurring preventive-maintenance item for a property/asset.
+
+    `next_due_on` is stored (not computed on read) since it only changes
+    when a service is logged, unlike RentInvoice's per-read status —
+    reading "is this due" is just `next_due_on <= today`. No scheduler:
+    raising an actual ticket off a due schedule is a manual owner/admin
+    action via the existing maintenance-tickets flow.
+    """
+
+    __tablename__ = "maintenance_schedules"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    property_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("properties.id"), index=True)
+    category: Mapped[str] = mapped_column(String(100))
+    frequency_days: Mapped[int] = mapped_column(Integer)
+    last_serviced_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    next_due_on: Mapped[date] = mapped_column(Date)
+    warranty_expires_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)

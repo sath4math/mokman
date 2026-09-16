@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class VendorIn(BaseModel):
@@ -21,7 +22,6 @@ class VendorUpdate(BaseModel):
     gst_number: str | None = None
     pan_number: str | None = None
     notes: str | None = None
-    is_active: bool | None = None
 
 
 class VendorOut(BaseModel):
@@ -34,5 +34,54 @@ class VendorOut(BaseModel):
     pan_number: str | None
     notes: str | None
     is_active: bool
+    average_rating: float | None = None
+
+
+class BlacklistRequest(BaseModel):
+    reason: str
+
+
+class VendorHistoryEventOut(BaseModel):
+    id: uuid.UUID
+    actor_id: uuid.UUID | None
+    action: str
+    after: dict | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VendorRateCardIn(BaseModel):
+    service_category: str
+    unit: str
+    rate: float
+    notes: str | None = None
+
+
+class VendorRateCardOut(BaseModel):
+    id: uuid.UUID
+    vendor_id: uuid.UUID
+    service_category: str
+    unit: str
+    rate: float
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class VendorRatingIn(BaseModel):
+    ticket_id: uuid.UUID
+    score: int = Field(ge=1, le=5)
+    notes: str | None = None
+
+
+class VendorRatingOut(BaseModel):
+    id: uuid.UUID
+    vendor_id: uuid.UUID
+    ticket_id: uuid.UUID
+    rated_by: uuid.UUID
+    score: int
+    notes: str | None
+    created_at: datetime
 
     model_config = {"from_attributes": True}

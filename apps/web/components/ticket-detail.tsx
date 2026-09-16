@@ -38,6 +38,9 @@ export function TicketDetail({
   }));
   const [assignee, setAssignee] = useState(staffCandidates[0]?.value ?? vendorCandidates[0]?.value ?? "");
   const [resolutionNotes, setResolutionNotes] = useState("");
+  const [ratingScore, setRatingScore] = useState(5);
+  const [ratingNotes, setRatingNotes] = useState("");
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   const isManager = viewerRole === "owner" || viewerRole === "admin";
   const isAssignee = viewerRole === "field_staff" && ticket.assigned_to === viewerId;
@@ -73,6 +76,27 @@ export function TicketDetail({
     if (!resolutionNotes.trim()) return;
     await post("/resolve", { resolution_notes: resolutionNotes });
     setResolutionNotes("");
+  }
+
+  async function handleRate() {
+    if (!ticket.assigned_vendor_id) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/backend/vendors/${ticket.assigned_vendor_id}/ratings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket_id: ticket.id, score: ratingScore, notes: ratingNotes || null }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.detail ?? "Failed to submit rating");
+        return;
+      }
+      setRatingSubmitted(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -168,6 +192,47 @@ export function TicketDetail({
             </button>
           )}
         </div>
+
+        {isManager && ticket.status === "closed" && ticket.assigned_vendor_id && (
+          <div className={styles.resolveForm}>
+            {ratingSubmitted ? (
+              <p className={ui.mutedText}>Vendor rated — thanks.</p>
+            ) : (
+              <>
+                <label className={ui.field}>
+                  Rate vendor (1-5)
+                  <select
+                    className={ui.select}
+                    value={ratingScore}
+                    onChange={(e) => setRatingScore(Number(e.target.value))}
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={ui.field}>
+                  Notes
+                  <input
+                    className={ui.input}
+                    value={ratingNotes}
+                    onChange={(e) => setRatingNotes(e.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRate}
+                  disabled={busy}
+                  className={`${ui.btnSecondary} ${ui.btnSmall}`}
+                >
+                  Submit rating
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {error && <p className={ui.errorText}>{error}</p>}
       </section>
 

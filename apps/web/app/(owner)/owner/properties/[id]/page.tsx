@@ -5,18 +5,24 @@ import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
 import type {
+  ComplianceDue,
   DocumentRecord,
   Expense,
   Lease,
+  MaintenanceSchedule,
   MaintenanceTicket,
   Property,
   PropertyStatement,
+  UtilityConnection,
 } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
+import { CompliancePanel } from "./compliance-panel";
 import { ExpensesPanel } from "./expenses-panel";
+import { PreventiveMaintenancePanel } from "./preventive-maintenance-panel";
 import styles from "./property-detail.module.css";
 import { TicketsPanel } from "./tickets-panel";
+import { UtilitiesPanel } from "./utilities-panel";
 
 export default async function PropertyDetailPage({
   params,
@@ -27,14 +33,18 @@ export default async function PropertyDetailPage({
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const [property, documents, leases, statement, expenses, tickets] = await Promise.all([
-    backendFetch<Property>(`/properties/${id}`),
-    backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
-    backendFetch<Lease[]>("/leases"),
-    backendFetch<PropertyStatement>(`/finance/statement?property_id=${id}`),
-    backendFetch<Expense[]>(`/expenses?property_id=${id}`),
-    backendFetch<MaintenanceTicket[]>(`/maintenance/tickets?property_id=${id}`),
-  ]);
+  const [property, documents, leases, statement, expenses, tickets, schedules, utilityConnections, complianceDues] =
+    await Promise.all([
+      backendFetch<Property>(`/properties/${id}`),
+      backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
+      backendFetch<Lease[]>("/leases"),
+      backendFetch<PropertyStatement>(`/finance/statement?property_id=${id}`),
+      backendFetch<Expense[]>(`/expenses?property_id=${id}`),
+      backendFetch<MaintenanceTicket[]>(`/maintenance/tickets?property_id=${id}`),
+      backendFetch<MaintenanceSchedule[]>(`/maintenance-schedules?property_id=${id}`),
+      backendFetch<UtilityConnection[]>(`/utilities/connections?property_id=${id}`),
+      backendFetch<ComplianceDue[]>(`/compliance/dues?property_id=${id}`),
+    ]);
 
   if (!property) notFound();
 
@@ -131,7 +141,18 @@ export default async function PropertyDetailPage({
 
       <TicketsPanel propertyId={property.id} initialTickets={tickets ?? []} />
 
-      <DocumentVault ownerType="property" ownerId={property.id} initialDocuments={documents ?? []} />
+      <PreventiveMaintenancePanel propertyId={property.id} initialSchedules={schedules ?? []} />
+
+      <UtilitiesPanel propertyId={property.id} initialConnections={utilityConnections ?? []} />
+
+      <CompliancePanel propertyId={property.id} initialDues={complianceDues ?? []} />
+
+      <DocumentVault
+        ownerType="property"
+        ownerId={property.id}
+        initialDocuments={documents ?? []}
+        documentTypes={["noc", "society_notice", "tax_receipt", "utility_bill", "other"]}
+      />
     </main>
   );
 }

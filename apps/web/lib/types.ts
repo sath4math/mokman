@@ -202,4 +202,81 @@ export interface Vendor {
   pan_number: string | null;
   notes: string | null;
   is_active: boolean;
+  average_rating: number | null;
+}
+
+export interface VendorHistoryEvent {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  after: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface VendorRateCard {
+  id: string;
+  vendor_id: string;
+  service_category: string;
+  unit: string;
+  rate: number;
+  notes: string | null;
+}
+
+export interface VendorRating {
+  id: string;
+  vendor_id: string;
+  ticket_id: string;
+  rated_by: string;
+  score: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface MaintenanceSchedule {
+  id: string;
+  property_id: string;
+  category: string;
+  frequency_days: number;
+  last_serviced_on: string | null;
+  next_due_on: string;
+  warranty_expires_on: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+export type UtilityResponsibility = "owner" | "tenant";
+
+export interface UtilityConnection {
+  id: string;
+  property_id: string;
+  utility_type: string;
+  provider: string | null;
+  account_number: string | null;
+  responsibility: UtilityResponsibility;
+  is_active: boolean;
+}
+
+export interface UtilityBill {
+  id: string;
+  connection_id: string;
+  billing_period_start: string;
+  billing_period_end: string;
+  amount: number;
+  due_date: string;
+  meter_reading: number | null;
+  paid_at: string | null;
+  paid_by: string | null;
+}
+
+export type ComplianceCategory = "society_maintenance" | "property_tax" | "other";
+
+export interface ComplianceDue {
+  id: string;
+  property_id: string;
+  category: ComplianceCategory;
+  description: string | null;
+  amount: number;
+  due_date: string;
+  paid_at: string | null;
+  paid_reference: string | null;
 }
