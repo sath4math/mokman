@@ -174,7 +174,7 @@ Core vendor loop only, cut down from the full doc scope the same way
   earlier phases got, on top of the standing admin/field-staff
   prod-login gap noted under Phase 3.
 
-### 🧱 Phase 4c — Vendor Polish + Preventive Maintenance + Utility Management + Society/Govt Coordination (implemented, verified locally — not yet deployed)
+### 🧱 Phase 4c — Vendor Polish + Preventive Maintenance + Utility Management + Society/Govt Coordination (deployed; owner+tenant flows not yet re-verified in prod)
 4a and 4b each cut Phase 4's full scope down to one proportionate slice.
 Four items remained: vendor-ops polish, preventive maintenance, utility
 management, and society/government coordination. I recommended keeping
@@ -231,16 +231,91 @@ them anymore.
   notification/scheduled-job infrastructure, auto-posting utility/
   compliance payments to the ledger, SLA automation, and the Phase 2
   `Inspection` model's ticket-triggered formalization.
-- **Not yet deployed.** Verified against local Postgres end-to-end (rate
-  cards, a rating produced against a closed vendor-assigned ticket
-  yielding a nonzero `average_rating`, blacklist→reinstate producing two
-  `AuditLog` rows with the reason intact, a maintenance schedule's
-  `next_due_on` recomputing after `log-service` and showing up in
-  `due_only`, a utility bill markable paid without touching the ledger, a
-  compliance due markable paid, and a NOC uploaded via the existing
-  document vault) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
-  `build`. Once deployed, expect the same prod-verification gaps noted
-  above for 4b.
+- **Deployed.** Verified against local Postgres end-to-end (rate cards, a
+  rating produced against a closed vendor-assigned ticket yielding a
+  nonzero `average_rating`, blacklist→reinstate producing two `AuditLog`
+  rows with the reason intact, a maintenance schedule's `next_due_on`
+  recomputing after `log-service` and showing up in `due_only`, a utility
+  bill markable paid without touching the ledger, a compliance due
+  markable paid, and a NOC uploaded via the existing document vault) plus
+  local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed to `main`
+  and confirmed live in prod (all four modules' routes present in
+  `openapi.json`, `/owner/properties/new` and `/admin/vendors` resolving)
+  — route-existence verification only, same gap as 4b.
+
+### 🧱 Phase 4d — Inspection Formalization + SLA Automation + Field Staff Offline PWA (implemented, verified locally — not yet deployed)
+After 4a-4c, every domain bullet in Phase 4's original scope was covered
+except two things the phase's own exit gate calls for: tickets "routed
+with SLA" and a technician who "works offline in the field." Both need a
+different kind of engineering than 4a-4c's reuse-heavy CRUD slices. I
+recommended scoping just the inspection-formalization item (still the
+same CRUD shape as before) and treating SLA automation and the offline
+PWA as their own separate scoping conversations, since both introduce
+genuinely new infrastructure/architecture this codebase has never used.
+The user chose to close out all three in one 4d, after two explicit
+architecture decisions up front:
+- **SLA firing mechanism**: an external cron hitting a protected internal
+  endpoint, not an in-process scheduler and not a compute-on-read-only
+  badge — the only one of the three options that's a genuine scheduled
+  job.
+- **Field Staff offline scope**: full PWA offline-first (service worker +
+  local action queue), not a lighter resilient-web retry layer — this is
+  what "offline" actually means in the doc's exit gate.
+
+**Inspection formalization**: `InspectionType` gained `scheduled` and
+`ticket_triggered`, plus `scheduled_for`/`triggered_by_ticket_id`/
+`follow_up_notes`/`follow_up_due_on` columns on the **existing**
+`Inspection` model (`app/models/inspection.py`) — exactly what that
+model's own docstring said Phase 4 would do to it, back in Phase 2.
+`GET /inspections?upcoming_only=true` mirrors `MaintenanceSchedule`'s
+`due_only` filter. Owner property page gets an Inspections panel;
+ticket detail gets a "Schedule inspection" action for owner/admin.
+
+**SLA automation**: `MaintenanceTicket.sla_due_at` is set once at
+creation from priority (urgent=4h → low=168h, `PRIORITY_SLA_HOURS` in
+`maintenance/service.py`). `POST /internal/maintenance/sla-check` is
+authenticated by a shared-secret header (`X-Cron-Secret` /
+`SLA_CRON_SECRET`, not a user JWT — this call has no user session) and
+does a single `UPDATE ... WHERE sla_breached_at IS NULL AND sla_due_at <
+now() RETURNING id`, naturally idempotent against overlapping cron runs
+with no lock needed. Each newly-breached ticket gets an `AuditLog` row
+(`action="ticket.sla_breached"`) — the same audit pattern 4c introduced
+for vendor blacklisting. `redis` is already a declared, unused dependency
+(`pyproject.toml`) but this deliberately doesn't reach for it — a single
+`UPDATE` doesn't need a queue or a lock. **The actual Railway cron
+schedule (recommended: every 15 minutes) still needs to be set up in
+Railway's dashboard** — that's a deploy-console step outside this repo's
+git history, same category as KYC/e-signature/payment-gateway vendor
+selection in earlier phases.
+
+**Field Staff offline PWA**: hand-rolled, no new npm dependency —
+`apps/web/public/field-manifest.json` + `field-sw.js` (network-first
+falling back to cache, registered with `{scope: "/field/"}` so it never
+touches owner/tenant/admin) plus `apps/web/lib/offline-queue.ts` (a
+small IndexedDB wrapper). `ticket-detail.tsx`'s `post()` — used by
+field_staff's start/resolve actions — falls back to
+`enqueueAction(...)` instead of erroring when offline; a `FieldPwaClient`
+component (mounted from the new `app/(field)/layout.tsx`) flushes the
+queue on the `online` event and on mount. Mutation queuing deliberately
+lives in plain client JS rather than the service worker, since
+Background Sync isn't reliably supported everywhere (notably Safari) —
+the `online`-event flush is the real mechanism, Background Sync would
+only ever be a bonus.
+- **Explicitly cut**: offline photo/evidence capture (queuing binary
+  blobs through IndexedDB and orchestrating a two-step presign+PUT
+  afterward is materially bigger than the text-mutation queue above).
+- **Verification gap**: I verified the manifest/service-worker files
+  serve correctly and that the manifest `<link>` appears only on `/field`
+  for a real field_staff session (absent from `/admin`), but did **not**
+  browser-test the actual offline queue/flush behavior (would need
+  Playwright with network throttling) — everything else in this phase
+  was hit directly via the API.
+- **Not yet deployed.** Local `ruff`/`mypy`/`pnpm lint`/`typecheck`/
+  `build` all clean; backend verified end-to-end locally (SLA breach
+  flagging incl. the idempotency check and the `AuditLog` row, both new
+  inspection types plus `upcoming_only`). Once deployed, expect the same
+  prod-verification gaps noted above, plus the cron-scheduling step this
+  phase can't do from inside the repo.
 
 ## Local development
 
