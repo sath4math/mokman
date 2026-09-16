@@ -465,7 +465,7 @@ lifecycle, reuse aggressively."
   in `openapi.json`, `/admin/checklist-templates` resolving) —
   route-existence verification only, same gap as every phase since 4b.
 
-### 🧱 Phase 5c — Warranty, Repeat-Failure Tracking, Cost-Variance Reporting (implemented, verified locally — not yet deployed)
+### 🧱 Phase 5c — Warranty, Repeat-Failure Tracking, Cost-Variance Reporting (deployed; owner+tenant flows not yet re-verified in prod)
 Final slice of Phase 5's quality-control bullet. 5a and 5b extended the
 ticket lifecycle with zero new infrastructure; 5c is a different kind of
 build — the doc's own technical note says repeat-failure and
@@ -505,12 +505,55 @@ analytics subsystem.
   (unlike every other phase). `apps/web/lib/types.ts` was still kept in
   sync with the new fields (zero UI consumes them yet) to avoid type
   drift.
+- **Deployed.** Verified against local Postgres end-to-end (see bullets
+  above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed
+  to `main` and confirmed live in prod (`/maintenance/reports/summary`
+  present in `openapi.json`) — route-existence verification only, same
+  gap as every phase since 4b.
+
+### 🧱 Phase 5d — Service Category Catalog + Managed-Service Request Intake (implemented, verified locally — not yet deployed)
+Last piece of Phase 5's original doc scope: *"Managed service request
+intake... auto-categorization, priority, eligibility, estimated
+completion"* and *"Full managed-service category catalog."* 5a-5c
+extended the ticket lifecycle/quality-control side; this slice is about
+what happens **before** a ticket even exists.
+- **Additive, not enforced — same principle as every phase since 4b.**
+  `MaintenanceTicket.category` stays free-text, unchanged. The new
+  `ServiceCategory` catalog only ever *supplies defaults when a match
+  exists* — a category with no catalog entry behaves exactly as it did
+  before this phase (verified explicitly: `medium` priority, the
+  untouched `PRIORITY_SLA_HOURS`-only SLA). This avoided having to
+  migrate the several things that already match on the existing
+  free-text category (`ChecklistTemplate` from 5b, vendor rate cards,
+  repeat-failure detection from 5c).
+- **Auto-categorization, reframed honestly**: no ML/text classification
+  — `TicketCreate.priority` became optional, and an omitted priority now
+  resolves to a matching category's `default_priority` instead of the
+  old flat `MEDIUM` fallback. Verified: an `emergency_response` category
+  (`default_priority=urgent`, `estimated_completion_hours=2`) correctly
+  produced `priority: urgent` with `sla_due_at` ~2h out — not the
+  priority table's flat 4h for urgent — and an explicit `priority` in
+  the request still overrides the category default.
+- **Eligibility, deliberately lightweight**: just `is_active` on the
+  catalog entry — verified deactivating a category correctly rejects
+  new tickets in it (400). This is **not** a package-tier eligibility
+  engine; that's explicitly Phase 6 scope and reaching into it now would
+  break the sequential-slice discipline this whole build has followed.
+- **"System-identified" tickets stay deferred** (e.g. auto-raising from
+  an overdue `MaintenanceSchedule`) — 4c already explicitly cut this;
+  not reopening that decision here.
+- Reuses the **existing** `ticket_priority` Postgres enum type for
+  `ServiceCategory.default_priority` (no new `CREATE TYPE`). New admin
+  screen `/admin/service-categories`. Both ticket-raising forms (owner
+  property detail page, tenant tickets page) now source their category
+  dropdown from the catalog, falling back to the old hardcoded list when
+  the catalog is empty, with a new "Auto (based on category)" priority
+  option so the category default is actually reachable from the UI
+  instead of always being overridden by an implicit `"medium"`.
 - **Not yet deployed.** Verified against local Postgres end-to-end (see
   bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
-- **Phase 5 status**: this closes the quality-control bullet (5a-5c),
-  but not all of Phase 5 — managed-service request intake
-  (auto-categorization/eligibility/estimated completion) and the full
-  service-category catalog are still open as a natural 5d.
+- **Phase 5 status: fully closed (5a-5d)**, matching its full original
+  doc scope — same kind of completion marker Phase 4 got after 4d.
 
 ## Local development
 
