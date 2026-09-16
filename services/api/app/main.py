@@ -18,6 +18,7 @@ from app.modules.owner.router import router as owner_router
 from app.modules.properties.router import router as properties_router
 from app.modules.renovation.router import router as renovation_router
 from app.modules.rent.router import router as rent_router
+from app.modules.sales.router import router as sales_router
 from app.modules.tenant.router import router as tenant_router
 from app.modules.utilities.router import router as utilities_router
 from app.modules.vendors.router import router as vendors_router
@@ -51,6 +52,7 @@ app.include_router(assistant_router)
 app.include_router(assets_router)
 app.include_router(insurance_router)
 app.include_router(renovation_router)
+app.include_router(sales_router)
 app.include_router(maintenance_internal_router)
 
 

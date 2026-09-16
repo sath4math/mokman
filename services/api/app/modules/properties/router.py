@@ -12,11 +12,13 @@ from app.modules.properties.schemas import (
     PropertyHealthScoreOut,
     PropertyOut,
     PropertyUpdate,
+    SaleReadinessOut,
 )
 from app.modules.properties.service import (
     PropertyNotFoundError,
     compute_health_score,
     compute_investment_summary,
+    compute_sale_readiness,
     create_property,
     get_owned_property,
     get_property_by_id,
@@ -128,3 +130,20 @@ def investment_summary(
     except PropertyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
     return compute_investment_summary(db, property_id)
+
+
+@router.get("/{property_id}/sale-readiness", response_model=SaleReadinessOut)
+def sale_readiness(
+    property_id: uuid.UUID,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SaleReadinessOut:
+    try:
+        if current.role == "admin":
+            get_property_by_id(db, property_id)
+        else:
+            _require_owner(current)
+            get_owned_property(db, current.user.id, property_id)
+    except PropertyNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None
+    return compute_sale_readiness(db, property_id)

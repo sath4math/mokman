@@ -71,6 +71,33 @@ export interface PropertyHealthScore {
   overdue_inspection_followups: number;
 }
 
+export interface SaleReadiness {
+  property_id: string;
+  is_ready: boolean;
+  open_tickets: number;
+  has_active_lease: boolean;
+  unsettled_insurance_claims: number;
+  incomplete_renovation_projects: number;
+}
+
+export type SaleStatus = "listed" | "under_negotiation" | "agreement_signed" | "completed" | "cancelled";
+
+export interface PropertySale {
+  id: string;
+  property_id: string;
+  status: SaleStatus;
+  listing_price: number | null;
+  sale_price: number | null;
+  buyer_name: string | null;
+  buyer_contact: string | null;
+  agreement_date: string | null;
+  settlement_date: string | null;
+  ownership_transferred: boolean;
+  utilities_transferred: boolean;
+  society_transferred: boolean;
+  notes: string | null;
+}
+
 export interface DocumentRecord {
   id: string;
   owner_type: string;

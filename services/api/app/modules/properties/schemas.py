@@ -62,3 +62,12 @@ class InvestmentSummaryOut(BaseModel):
     gross_yield_percentage: float | None
     total_net_income_all_time: float
     roi_percentage: float | None
+
+
+class SaleReadinessOut(BaseModel):
+    property_id: uuid.UUID
+    is_ready: bool
+    open_tickets: int
+    has_active_lease: bool
+    unsettled_insurance_claims: int
+    incomplete_renovation_projects: int

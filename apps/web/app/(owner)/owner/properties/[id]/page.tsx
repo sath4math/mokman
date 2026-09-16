@@ -17,8 +17,10 @@ import type {
   MaintenanceTicket,
   Property,
   PropertyHealthScore,
+  PropertySale,
   PropertyStatement,
   RenovationProject,
+  SaleReadiness,
   ServiceCategory,
   UtilityConnection,
 } from "@/lib/types";
@@ -33,6 +35,7 @@ import { InvestmentPanel } from "./investment-panel";
 import { PreventiveMaintenancePanel } from "./preventive-maintenance-panel";
 import styles from "./property-detail.module.css";
 import { RenovationPanel } from "./renovation-panel";
+import { SalePanel } from "./sale-panel";
 import { TicketsPanel } from "./tickets-panel";
 import { UtilitiesPanel } from "./utilities-panel";
 
@@ -62,6 +65,8 @@ export default async function PropertyDetailPage({
     insurancePolicies,
     renovationProjects,
     investmentSummary,
+    sales,
+    saleReadiness,
   ] = await Promise.all([
     backendFetch<Property>(`/properties/${id}`),
     backendFetch<DocumentRecord[]>(`/documents?owner_type=property&owner_id=${id}`),
@@ -79,6 +84,8 @@ export default async function PropertyDetailPage({
     backendFetch<InsurancePolicy[]>(`/insurance/policies?property_id=${id}`),
     backendFetch<RenovationProject[]>(`/renovation/projects?property_id=${id}`),
     backendFetch<InvestmentSummary>(`/properties/${id}/investment-summary`),
+    backendFetch<PropertySale[]>(`/sales?property_id=${id}`),
+    backendFetch<SaleReadiness>(`/properties/${id}/sale-readiness`),
   ]);
 
   if (!property) notFound();
@@ -217,11 +224,13 @@ export default async function PropertyDetailPage({
 
       <InvestmentPanel propertyId={property.id} initialSummary={investmentSummary ?? null} />
 
+      <SalePanel propertyId={property.id} initialSales={sales ?? []} initialReadiness={saleReadiness ?? null} />
+
       <DocumentVault
         ownerType="property"
         ownerId={property.id}
         initialDocuments={documents ?? []}
-        documentTypes={["noc", "society_notice", "tax_receipt", "utility_bill", "other"]}
+        documentTypes={["noc", "society_notice", "tax_receipt", "utility_bill", "sale_agreement", "other"]}
       />
     </main>
   );

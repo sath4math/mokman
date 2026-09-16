@@ -5,14 +5,18 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.inspection import Inspection
+from app.models.insurance import ClaimStatus, InsuranceClaim, InsurancePolicy
+from app.models.lease import Lease, LeaseStatus
 from app.models.ledger import LedgerEntry, LedgerEntryType
 from app.models.maintenance import MaintenanceSchedule, MaintenanceTicket, TicketStatus
 from app.models.property import Property
+from app.models.renovation import ProjectStatus, RenovationProject
 from app.modules.properties.schemas import (
     InvestmentSummaryOut,
     PropertyCreate,
     PropertyHealthScoreOut,
     PropertyUpdate,
+    SaleReadinessOut,
 )
 
 _INVESTMENT_TRAILING_DAYS = 365
@@ -182,3 +186,60 @@ def compute_investment_summary(db: Session, property_id: uuid.UUID) -> Investmen
 
 def list_investment_summaries(db: Session, owner_id: uuid.UUID) -> list[InvestmentSummaryOut]:
     return [compute_investment_summary(db, p.id) for p in list_properties_for_owner(db, owner_id)]
+
+
+def compute_sale_readiness(db: Session, property_id: uuid.UUID) -> SaleReadinessOut:
+    """A deterministic readiness checklist (Phase 8d), not a scored
+    formula like compute_health_score -- is_ready is True only when
+    every signal is clear. Imports InsuranceClaim/RenovationProject as
+    models directly (not their service modules, which already import
+    this one -- a top-level service import here would cycle)."""
+    open_tickets = db.execute(
+        select(func.count())
+        .select_from(MaintenanceTicket)
+        .where(MaintenanceTicket.property_id == property_id, MaintenanceTicket.status != TicketStatus.CLOSED)
+    ).scalar_one()
+
+    has_active_lease = (
+        db.execute(
+            select(func.count())
+            .select_from(Lease)
+            .where(Lease.property_id == property_id, Lease.status == LeaseStatus.ACTIVE)
+        ).scalar_one()
+        > 0
+    )
+
+    unsettled_insurance_claims = db.execute(
+        select(func.count())
+        .select_from(InsuranceClaim)
+        .join(InsurancePolicy, InsuranceClaim.policy_id == InsurancePolicy.id)
+        .where(
+            InsurancePolicy.property_id == property_id,
+            InsuranceClaim.status.not_in((ClaimStatus.SETTLED, ClaimStatus.REJECTED)),
+        )
+    ).scalar_one()
+
+    incomplete_renovation_projects = db.execute(
+        select(func.count())
+        .select_from(RenovationProject)
+        .where(
+            RenovationProject.property_id == property_id,
+            RenovationProject.status.not_in((ProjectStatus.COMPLETED, ProjectStatus.CANCELLED)),
+        )
+    ).scalar_one()
+
+    is_ready = (
+        open_tickets == 0
+        and not has_active_lease
+        and unsettled_insurance_claims == 0
+        and incomplete_renovation_projects == 0
+    )
+
+    return SaleReadinessOut(
+        property_id=property_id,
+        is_ready=is_ready,
+        open_tickets=open_tickets,
+        has_active_lease=has_active_lease,
+        unsettled_insurance_claims=unsettled_insurance_claims,
+        incomplete_renovation_projects=incomplete_renovation_projects,
+    )

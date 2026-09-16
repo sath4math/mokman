@@ -41,6 +41,7 @@ from app.models.property import (
 from app.models.rbac import Permission, Role, RoleAssignment
 from app.models.renovation import ProjectMilestone, ProjectStatus, RenovationProject
 from app.models.rent import InvoiceStatus, RentInvoice
+from app.models.sale import PropertySale, SaleStatus
 from app.models.tenant_profile import TenantProfile, TenantVerificationStatus
 from app.models.user import User
 from app.models.utility import UtilityBill, UtilityConnection, UtilityResponsibility
@@ -84,12 +85,14 @@ __all__ = [
     "ProjectMilestone",
     "ProjectStatus",
     "Property",
+    "PropertySale",
     "PropertyStatus",
     "RenovationProject",
     "RentInvoice",
     "Role",
     "RoleAssignment",
     "Room",
+    "SaleStatus",
     "ServiceCategory",
     "ServiceEligibilityRule",
     "StorageUnit",
