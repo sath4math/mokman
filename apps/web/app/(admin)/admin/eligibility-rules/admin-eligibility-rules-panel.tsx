@@ -25,10 +25,20 @@ const OUTCOME_LABELS: Record<EligibilityOutcome, string> = {
 export function AdminEligibilityRulesPanel({ categories }: { categories: ServiceCategory[] }) {
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [rules, setRules] = useState<ServiceEligibilityRule[]>([]);
-  const [draft, setDraft] = useState<{ package: OwnerPackage; outcome: EligibilityOutcome; notes: string }>({
+  const [draft, setDraft] = useState<{
+    package: OwnerPackage;
+    outcome: EligibilityOutcome;
+    notes: string;
+    maxOccurrences: string;
+    periodDays: string;
+    maxValue: string;
+  }>({
     package: "starter",
     outcome: "included",
     notes: "",
+    maxOccurrences: "",
+    periodDays: "",
+    maxValue: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,6 +69,9 @@ export function AdminEligibilityRulesPanel({ categories }: { categories: Service
           package: draft.package,
           outcome: draft.outcome,
           notes: draft.notes || null,
+          max_occurrences: draft.maxOccurrences ? Number(draft.maxOccurrences) : null,
+          period_days: draft.periodDays ? Number(draft.periodDays) : null,
+          max_value: draft.maxValue ? Number(draft.maxValue) : null,
         }),
       });
       const data = await response.json();
@@ -67,7 +80,14 @@ export function AdminEligibilityRulesPanel({ categories }: { categories: Service
         return;
       }
       setRules((prev) => [data, ...prev]);
-      setDraft({ package: "starter", outcome: "included", notes: "" });
+      setDraft({
+        package: "starter",
+        outcome: "included",
+        notes: "",
+        maxOccurrences: "",
+        periodDays: "",
+        maxValue: "",
+      });
     } finally {
       setBusy(false);
     }
@@ -147,6 +167,36 @@ export function AdminEligibilityRulesPanel({ categories }: { categories: Service
                   onChange={(e) => setDraft((prev) => ({ ...prev, notes: e.target.value }))}
                 />
               </label>
+              <label className={ui.field}>
+                Max occurrences (fair use)
+                <input
+                  type="number"
+                  className={ui.input}
+                  placeholder="e.g. 2"
+                  value={draft.maxOccurrences}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, maxOccurrences: e.target.value }))}
+                />
+              </label>
+              <label className={ui.field}>
+                Per how many days
+                <input
+                  type="number"
+                  className={ui.input}
+                  placeholder="e.g. 90"
+                  value={draft.periodDays}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, periodDays: e.target.value }))}
+                />
+              </label>
+              <label className={ui.field}>
+                Max value (fair use)
+                <input
+                  type="number"
+                  className={ui.input}
+                  placeholder="e.g. 500"
+                  value={draft.maxValue}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, maxValue: e.target.value }))}
+                />
+              </label>
               <button type="button" onClick={handleAdd} disabled={busy} className={ui.btnPrimary}>
                 Add rule
               </button>
@@ -163,6 +213,15 @@ export function AdminEligibilityRulesPanel({ categories }: { categories: Service
                     <span>
                       {PACKAGE_LABELS[rule.package]} → {OUTCOME_LABELS[rule.outcome]}
                     </span>
+                    {(rule.max_occurrences != null || rule.max_value != null) && (
+                      <span className={ui.faintText}>
+                        Fair use:{" "}
+                        {rule.max_occurrences != null &&
+                          `≤${rule.max_occurrences} per ${rule.period_days} days`}
+                        {rule.max_occurrences != null && rule.max_value != null && ", "}
+                        {rule.max_value != null && `cap ${rule.max_value}`}
+                      </span>
+                    )}
                     {rule.notes && <span className={ui.faintText}>{rule.notes}</span>}
                   </div>
                   <button

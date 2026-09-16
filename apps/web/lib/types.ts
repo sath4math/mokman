@@ -221,6 +221,7 @@ export interface MaintenanceTicket {
   is_repeat_failure: boolean;
   related_ticket_id: string | null;
   eligibility_outcome: EligibilityOutcome | null;
+  fair_use_breached: boolean;
 }
 
 export interface ChecklistTemplate {
@@ -246,6 +247,9 @@ export interface ServiceEligibilityRule {
   package: OwnerPackage;
   outcome: EligibilityOutcome;
   notes: string | null;
+  max_occurrences: number | null;
+  period_days: number | null;
+  max_value: number | null;
 }
 
 export interface FieldStaffUser {

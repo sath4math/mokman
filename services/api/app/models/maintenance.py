@@ -127,6 +127,12 @@ class MaintenanceTicket(Base, TimestampMixin):
         str_enum_column(EligibilityOutcome, "eligibility_outcome"), nullable=True
     )
 
+    # Set when this specific ticket exceeds a matched rule's fair-use
+    # limits (Phase 6c) -- independent of eligibility_outcome, since the
+    # rule's configured outcome and "this ticket exceeded the owner's
+    # entitlement" are separate facts.
+    fair_use_breached: Mapped[bool] = mapped_column(Boolean, default=False)
+
 
 class ServiceCategory(Base, TimestampMixin):
     """An admin-managed reference entry for a ticket `category` string.
@@ -169,6 +175,12 @@ class ServiceEligibilityRule(Base, TimestampMixin):
     package: Mapped[OwnerPackage] = mapped_column(str_enum_column(OwnerPackage, "owner_package"))
     outcome: Mapped[EligibilityOutcome] = mapped_column(str_enum_column(EligibilityOutcome, "eligibility_outcome"))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Fair-use limits (Phase 6c) -- both independent and optional. A rule
+    # with neither set (every rule from 6b) behaves exactly as before.
+    max_occurrences: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    period_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_value: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class ChecklistTemplate(Base, TimestampMixin):

@@ -210,6 +210,9 @@ export function TicketDetail({
             {ticket.eligibility_outcome === "escalate" && (
               <span className={ui.badgeDanger}>Escalation required</span>
             )}
+            {ticket.fair_use_breached && (
+              <span className={ui.badgeDanger}>Fair-use limit exceeded</span>
+            )}
             {ticket.eligibility_outcome && ticket.eligibility_outcome !== "escalate" && (
               <span className={ui.badge}>{ticket.eligibility_outcome.replace(/_/g, " ")}</span>
             )}

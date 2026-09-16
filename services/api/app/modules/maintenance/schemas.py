@@ -93,11 +93,17 @@ class ServiceEligibilityRuleIn(BaseModel):
     package: OwnerPackage
     outcome: EligibilityOutcome
     notes: str | None = None
+    max_occurrences: int | None = None
+    period_days: int | None = None
+    max_value: float | None = None
 
 
 class ServiceEligibilityRuleUpdate(BaseModel):
     outcome: EligibilityOutcome | None = None
     notes: str | None = None
+    max_occurrences: int | None = None
+    period_days: int | None = None
+    max_value: float | None = None
 
 
 class ServiceEligibilityRuleOut(BaseModel):
@@ -106,6 +112,9 @@ class ServiceEligibilityRuleOut(BaseModel):
     package: OwnerPackage
     outcome: EligibilityOutcome
     notes: str | None
+    max_occurrences: int | None
+    period_days: int | None
+    max_value: float | None
 
     model_config = {"from_attributes": True}
 
@@ -156,6 +165,7 @@ class TicketOut(BaseModel):
     is_repeat_failure: bool
     related_ticket_id: uuid.UUID | None
     eligibility_outcome: EligibilityOutcome | None
+    fair_use_breached: bool
 
     model_config = {"from_attributes": True}
 

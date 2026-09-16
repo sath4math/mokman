@@ -106,16 +106,38 @@ class ThirdPartyRequiredError(Exception):
     pass
 
 
-def _resolve_eligibility(
+def _resolve_eligibility_rule(
     db: Session, service_category_id: uuid.UUID, package: OwnerPackage
-) -> EligibilityOutcome | None:
-    rule = db.execute(
+) -> ServiceEligibilityRule | None:
+    return db.execute(
         select(ServiceEligibilityRule).where(
             ServiceEligibilityRule.service_category_id == service_category_id,
             ServiceEligibilityRule.package == package,
         )
     ).scalar_one_or_none()
-    return rule.outcome if rule else None
+
+
+def _owner_package_for_property(db: Session, property_id: uuid.UUID) -> OwnerPackage:
+    property_ = db.get(Property, property_id)
+    owner_profile = db.get(OwnerProfile, property_.owner_id) if property_ else None
+    return owner_profile.package if owner_profile else OwnerPackage.STARTER
+
+
+def _exceeds_frequency_limit(
+    db: Session, owner_id: uuid.UUID, category: str, max_occurrences: int, period_days: int
+) -> bool:
+    cutoff = datetime.now(UTC) - timedelta(days=period_days)
+    count = db.execute(
+        select(func.count())
+        .select_from(MaintenanceTicket)
+        .join(Property, Property.id == MaintenanceTicket.property_id)
+        .where(
+            Property.owner_id == owner_id,
+            MaintenanceTicket.category == category,
+            MaintenanceTicket.created_at >= cutoff,
+        )
+    ).scalar_one()
+    return count >= max_occurrences
 
 
 def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> MaintenanceTicket:
@@ -137,11 +159,17 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
         sla_hours = PRIORITY_SLA_HOURS[priority]
 
     eligibility_outcome = None
+    fair_use_breached = False
     if service_category is not None:
         property_ = db.get(Property, data.property_id)
-        owner_profile = db.get(OwnerProfile, property_.owner_id) if property_ else None
-        owner_package = owner_profile.package if owner_profile else OwnerPackage.STARTER
-        eligibility_outcome = _resolve_eligibility(db, service_category.id, owner_package)
+        owner_package = _owner_package_for_property(db, data.property_id)
+        rule = _resolve_eligibility_rule(db, service_category.id, owner_package)
+        if rule is not None:
+            eligibility_outcome = rule.outcome
+            if rule.max_occurrences is not None and rule.period_days is not None and property_ is not None:
+                fair_use_breached = _exceeds_frequency_limit(
+                    db, property_.owner_id, data.category, rule.max_occurrences, rule.period_days
+                )
 
     now = datetime.now(UTC)
     ticket = MaintenanceTicket(
@@ -152,6 +180,7 @@ def create_ticket(db: Session, user_id: uuid.UUID, data: TicketCreate) -> Mainte
         raised_by=user_id,
         sla_due_at=now + timedelta(hours=sla_hours),
         eligibility_outcome=eligibility_outcome,
+        fair_use_breached=fair_use_breached,
     )
 
     # Repeat-failure detection: a prior closed ticket on the same
@@ -289,8 +318,22 @@ def estimate_ticket(
     ticket.estimated_by = user_id
 
     property_ = db.get(Property, ticket.property_id)
+
+    # A value breach (Phase 6c) always requires an explicit approve call,
+    # even from the property owner -- it's no longer a routine self-quote
+    # within the owner's plan entitlement. A frequency breach flagged
+    # earlier at creation is untouched by this check.
+    service_category = db.execute(
+        select(ServiceCategory).where(ServiceCategory.name == ticket.category)
+    ).scalar_one_or_none()
+    if service_category is not None and property_ is not None:
+        owner_package = _owner_package_for_property(db, property_.id)
+        rule = _resolve_eligibility_rule(db, service_category.id, owner_package)
+        if rule is not None and rule.max_value is not None and estimated_cost > rule.max_value:
+            ticket.fair_use_breached = True
+
     is_owner_of_property = role == "owner" and property_ is not None and property_.owner_id == user_id
-    if is_owner_of_property:
+    if is_owner_of_property and not ticket.fair_use_breached:
         # No one else to approve from — the owner quoting their own
         # ticket is self-evidently approved, same as create_expense's
         # owner-auto-approve branch.
@@ -469,7 +512,10 @@ def assign_ticket(
     # shortcut — it has to go through 5a's diagnose->estimate->approve
     # chain first. APPROVED/ASSIGNED are unaffected, so a ticket that
     # already went through that chain assigns exactly as it does today.
-    if ticket.eligibility_outcome == EligibilityOutcome.ESCALATE and ticket.status == TicketStatus.OPEN:
+    # A fair-use breach (Phase 6c) is treated the same way as an escalate
+    # rule for this guard — either reason forces the same approval gate.
+    needs_escalation = ticket.eligibility_outcome == EligibilityOutcome.ESCALATE or ticket.fair_use_breached
+    if needs_escalation and ticket.status == TicketStatus.OPEN:
         raise EscalationApprovalRequiredError
     if (assigned_to is None) == (assigned_vendor_id is None):
         raise InvalidAssigneeError
