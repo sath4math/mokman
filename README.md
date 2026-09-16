@@ -1341,11 +1341,28 @@ watermark doesn't establish a free license.
   standalone brand icons (`field-icon-192.png`/`512.png`), not
   `public/images/` which is reserved for the Unsplash content photos
   above. Replaces the generic `IconHouse` mark in the public header
-  (`app/(public)/layout.tsx`) next to the "Mokman" wordmark.
-  Verified in both light and dark mode (`prefers-color-scheme`) via
-  Playwright — the logo's own opaque white background reads as a
-  clean rounded badge against the dark header rather than clashing,
-  so no image editing was needed despite this app's dark-mode support.
+  (`app/(public)/layout.tsx`) next to the "Mokman" wordmark, and also
+  copied to `app/icon.png` — Next.js's file-convention favicon, picked
+  up automatically with no metadata/layout code changes needed
+  (`app/favicon.ico` stays in place too, as the legacy fallback for
+  browsers/contexts that request `/favicon.ico` directly regardless of
+  the page's `<link>` tags).
+- **The source file's "transparent" background was actually a
+  checkerboard flattened into opaque pixels** (`color type 2` / RGB,
+  no alpha channel — confirmed by reading the PNG's IHDR chunk
+  directly, since no image-inspection tool was available) — an editor
+  export artifact, not real transparency. Caught after the first
+  version was already deployed as the header logo, when it rendered as
+  a plain white/grey box in dark mode instead of blending in. Fixed
+  with a one-off Node script (`pngjs`, installed only in the session
+  scratchpad, not a project dependency) that flood-fills from the
+  image's edges through any neutral/light pixel — reaching the
+  checkerboard corners but not the shield's enclosed white interior,
+  since the green outline blocks the flood fill — and sets those
+  pixels' alpha to 0. Verified by compositing the result over solid
+  red before/after: background fully transparent, shield edges clean,
+  no halo. Both `public/mokman-logo.png` and `app/icon.png` replaced
+  with this corrected version.
 
 ## Local development
 
