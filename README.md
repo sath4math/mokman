@@ -559,7 +559,7 @@ what happens **before** a ticket even exists.
 - **Phase 5 status: fully closed (5a-5d)**, matching its full original
   doc scope — same kind of completion marker Phase 4 got after 4d.
 
-### 🧱 Phase 6a — Owner Package/Plan Tier Foundation (implemented, verified locally — not yet deployed)
+### 🧱 Phase 6a — Owner Package/Plan Tier Foundation (deployed; owner+tenant flows not yet re-verified in prod)
 Phase 6's doc scope centers on a labour-service **eligibility engine**:
 whether a job is package-included, chargeable, or needs escalation.
 That's meaningless without owners actually having a package/plan tier —
@@ -606,8 +606,69 @@ spec'd as a Complete-tier feature).
   labeled dropdown using the spec's own positioning taglines (e.g.
   "Complete — everything, including in-house workforce &
   intelligence"), not a bare enum value.
-- **Not yet deployed.** Verified against local Postgres end-to-end (see
-  bullets above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`.
+- **Deployed.** Verified against local Postgres end-to-end (see bullets
+  above) plus local `ruff`/`mypy`/`pnpm lint`/`typecheck`/`build`. Pushed
+  to `main` and confirmed live in prod (`OwnerPackage`/`package` present
+  in `openapi.json`) — route-existence verification only, same gap as
+  every phase since 4b.
+
+### 🧱 Phase 6b — Labour-Service Eligibility Engine (implemented, verified locally — not yet deployed)
+6a added `OwnerProfile.package` as inert data with zero enforcement
+anywhere. This slice builds the thing Phase 6's own doc calls "the hard
+part of this phase": a rules engine determining whether a job is
+package-included, chargeable, needs a third party, is out of scope, or
+needs escalation — built as *"configurable rules/policies, not
+hardcoded conditionals"* per the doc's own technical guidance.
+- **Only two of the five outcomes get real enforcement**, confirmed with
+  the user, each reusing machinery that already exists rather than
+  inventing new workflow: `escalate` reuses 5a's entire
+  diagnose→estimate→approve chain — a ticket flagged `escalate` can no
+  longer be assigned straight from `open`, it must reach `approved`
+  first (zero new workflow code). `third_party` adds one guard to the
+  existing assignment exactly-one-of-assignee check — such a ticket can
+  only be assigned to a vendor, never internal field staff. `included`,
+  `chargeable`, and `out_of_scope` are informational tags only —
+  confirmed explicitly that `out_of_scope` does **not** block ticket
+  creation, unlike 5d's inactive-category check.
+- New `ServiceEligibilityRule` (`app/models/maintenance.py`): one row
+  per (`service_category_id`, `package`) pair with a unique constraint,
+  an `outcome`, and optional `notes`. A ticket's category+package
+  combination with no matching row simply gets no
+  `eligibility_outcome` — the engine only ever adds information/gates
+  for combinations someone has actually configured, same "optional"
+  principle as every gate since 5a.
+- `create_ticket` resolves the owner's package via
+  `property.owner_id → OwnerProfile.package` (defaulting to `starter` if
+  no profile row exists, matching 6a's own default) and looks up a rule
+  for `(service_category.id, package)`, setting
+  `MaintenanceTicket.eligibility_outcome` if found.
+- CRUD via `POST`/`GET`/`PATCH`/`DELETE /maintenance/eligibility-rules[/{id}]`
+  (admin-only mutations, owner+admin read — owners can see what's
+  covered under their own plan) on new admin screen
+  `/admin/eligibility-rules`. `ticket-detail.tsx` shows the resolved
+  outcome as a badge (escalate styled like the SLA-breach danger badge).
+- **Fair-use frequency/value thresholds and material/cost tracking
+  against entitlements are explicitly not in this slice** — that needs
+  its own historical-tracking design, same split reasoning as 5b/5c, and
+  is deferred to a later 6c.
+- **Migration gotcha worth remembering**: reusing the same `sa.Enum`
+  object for both an explicit `.create(checkfirst=True)` call and a
+  column type inside `op.create_table` double-triggers `CREATE TYPE` —
+  `op.create_table`'s DDL re-emits type creation for any Enum column
+  object that hasn't been told the type already exists, unlike
+  `op.add_column` (6a's migration used the same-object pattern safely
+  only because it's an `add_column`, not a `create_table`). Fixed by
+  following 5d's migration's existing `postgresql.ENUM(name=...,
+  create_type=False)` reuse pattern for the table's columns.
+- **Verified against local Postgres end-to-end**: an escalate rule
+  correctly resolves onto a new ticket and blocks `/assign` from `open`
+  with 409 until the ticket passes through diagnose→estimate→approve,
+  after which assignment succeeds; a third_party rule blocks assigning
+  to field_staff with 400 while a vendor assignment succeeds; a ticket
+  in a category with no matching rule at all assigns exactly as every
+  prior phase, unchanged. Plus local `ruff`/`mypy`/`pnpm lint`/
+  `typecheck`/`build`.
+- **Not yet deployed.**
 
 ## Local development
 
