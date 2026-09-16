@@ -25,6 +25,11 @@ export default async function AdminOverviewPage() {
           Manage tickets →
         </Link>
       </p>
+      <p className={styles.linkRow}>
+        <Link href="/admin/vendors" className={ui.linkPrimary}>
+          Manage vendors →
+        </Link>
+      </p>
     </>
   );
 }

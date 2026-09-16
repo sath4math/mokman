@@ -29,6 +29,7 @@ export default async function FieldTicketDetailPage({
         viewerId={user.id}
         documents={documents ?? []}
         staff={[]}
+        vendors={[]}
       />
     </main>
   );

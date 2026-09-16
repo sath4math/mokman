@@ -3,10 +3,12 @@
 import { useState } from "react";
 
 import { DocumentVault } from "@/components/document-vault";
-import type { DocumentRecord, FieldStaffUser, MaintenanceTicket } from "@/lib/types";
+import type { DocumentRecord, FieldStaffUser, MaintenanceTicket, Vendor } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./ticket-detail.module.css";
+
+type Candidate = { value: string; label: string };
 
 export function TicketDetail({
   ticket: initialTicket,
@@ -14,17 +16,27 @@ export function TicketDetail({
   viewerId,
   documents,
   staff,
+  vendors,
 }: {
   ticket: MaintenanceTicket;
   viewerRole: "owner" | "tenant" | "field_staff" | "admin";
   viewerId: string;
   documents: DocumentRecord[];
   staff: FieldStaffUser[];
+  vendors: Vendor[];
 }) {
   const [ticket, setTicket] = useState(initialTicket);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [assignee, setAssignee] = useState(staff[0]?.id ?? "");
+  const staffCandidates: Candidate[] = staff.map((s) => ({
+    value: `staff:${s.id}`,
+    label: s.full_name ?? s.email ?? s.id,
+  }));
+  const vendorCandidates: Candidate[] = vendors.map((v) => ({
+    value: `vendor:${v.id}`,
+    label: `${v.name} (${v.service_category})`,
+  }));
+  const [assignee, setAssignee] = useState(staffCandidates[0]?.value ?? vendorCandidates[0]?.value ?? "");
   const [resolutionNotes, setResolutionNotes] = useState("");
 
   const isManager = viewerRole === "owner" || viewerRole === "admin";
@@ -53,7 +65,8 @@ export function TicketDetail({
 
   async function handleAssign() {
     if (!assignee) return;
-    await post("/assign", { assigned_to: assignee });
+    const [type, id] = assignee.split(":");
+    await post("/assign", type === "vendor" ? { assigned_vendor_id: id } : { assigned_to: id });
   }
 
   async function handleResolve() {
@@ -81,23 +94,38 @@ export function TicketDetail({
           </div>
         )}
 
-        {isManager && (ticket.status === "open" || ticket.status === "assigned") && staff.length > 0 && (
-          <div className={styles.assignRow}>
-            <label className={ui.field}>
-              Assign to
-              <select className={ui.select} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.full_name ?? s.email}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" onClick={handleAssign} disabled={busy} className={ui.btnPrimary}>
-              {ticket.assigned_to ? "Reassign" : "Assign"}
-            </button>
-          </div>
-        )}
+        {isManager &&
+          (ticket.status === "open" || ticket.status === "assigned") &&
+          (staffCandidates.length > 0 || vendorCandidates.length > 0) && (
+            <div className={styles.assignRow}>
+              <label className={ui.field}>
+                Assign to
+                <select className={ui.select} value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+                  {staffCandidates.length > 0 && (
+                    <optgroup label="Field Staff">
+                      {staffCandidates.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {vendorCandidates.length > 0 && (
+                    <optgroup label="Vendors">
+                      {vendorCandidates.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </label>
+              <button type="button" onClick={handleAssign} disabled={busy} className={ui.btnPrimary}>
+                {ticket.assigned_to || ticket.assigned_vendor_id ? "Reassign" : "Assign"}
+              </button>
+            </div>
+          )}
 
         <div className={ui.flexRow}>
           {(isAssignee || isManager) && ticket.status === "assigned" && (

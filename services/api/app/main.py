@@ -12,6 +12,7 @@ from app.modules.owner.router import router as owner_router
 from app.modules.properties.router import router as properties_router
 from app.modules.rent.router import router as rent_router
 from app.modules.tenant.router import router as tenant_router
+from app.modules.vendors.router import router as vendors_router
 
 app = FastAPI(title="Mokman API")
 
@@ -34,6 +35,7 @@ app.include_router(expenses_router)
 app.include_router(finance_router)
 app.include_router(maintenance_router)
 app.include_router(documents_router)
+app.include_router(vendors_router)
 
 
 @app.get("/health")

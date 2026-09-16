@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { Expense, Property } from "@/lib/types";
+import type { Expense, Property, Vendor } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import { AdminExpensesPanel } from "./admin-expenses-panel";
@@ -13,9 +13,10 @@ export default async function AdminExpensesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [properties, expenses] = await Promise.all([
+  const [properties, expenses, vendors] = await Promise.all([
     backendFetch<Property[]>("/properties"),
     backendFetch<Expense[]>("/expenses"),
+    backendFetch<Vendor[]>("/vendors?active_only=true"),
   ]);
 
   return (
@@ -24,7 +25,7 @@ export default async function AdminExpensesPage() {
         <h1 className={styles.title}>Expenses</h1>
         <LogoutButton />
       </div>
-      <AdminExpensesPanel properties={properties ?? []} initialExpenses={expenses ?? []} />
+      <AdminExpensesPanel properties={properties ?? []} initialExpenses={expenses ?? []} vendors={vendors ?? []} />
     </main>
   );
 }

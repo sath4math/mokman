@@ -165,6 +165,7 @@ export interface Expense {
   submitted_by: string;
   approved_by: string | null;
   approved_at: string | null;
+  vendor_id: string | null;
 }
 
 export type TicketStatus = "open" | "assigned" | "in_progress" | "resolved" | "closed";
@@ -179,6 +180,7 @@ export interface MaintenanceTicket {
   status: TicketStatus;
   raised_by: string;
   assigned_to: string | null;
+  assigned_vendor_id: string | null;
   resolution_notes: string | null;
   closed_at: string | null;
   created_at: string;
@@ -188,4 +190,16 @@ export interface FieldStaffUser {
   id: string;
   full_name: string | null;
   email: string | null;
+}
+
+export interface Vendor {
+  id: string;
+  name: string;
+  service_category: string;
+  phone: string | null;
+  email: string | null;
+  gst_number: string | null;
+  pan_number: string | null;
+  notes: string | null;
+  is_active: boolean;
 }

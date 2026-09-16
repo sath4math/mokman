@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import type { Expense, Property } from "@/lib/types";
+import type { Expense, Property, Vendor } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./expenses.module.css";
@@ -10,9 +10,11 @@ import styles from "./expenses.module.css";
 export function AdminExpensesPanel({
   properties,
   initialExpenses,
+  vendors,
 }: {
   properties: Property[];
   initialExpenses: Expense[];
+  vendors: Vendor[];
 }) {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [draft, setDraft] = useState({
@@ -20,11 +22,13 @@ export function AdminExpensesPanel({
     category: "",
     amount: "",
     description: "",
+    vendor_id: "",
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const propertyName = (id: string) => properties.find((p) => p.id === id)?.name ?? id;
+  const vendorName = (id: string) => vendors.find((v) => v.id === id)?.name ?? id;
 
   async function handleAdd() {
     if (!draft.property_id || !draft.category || !draft.amount) return;
@@ -39,6 +43,7 @@ export function AdminExpensesPanel({
           category: draft.category,
           amount: Number(draft.amount),
           description: draft.description || null,
+          vendor_id: draft.vendor_id || null,
         }),
       });
       const data = await response.json();
@@ -47,7 +52,7 @@ export function AdminExpensesPanel({
         return;
       }
       setExpenses((prev) => [data, ...prev]);
-      setDraft((prev) => ({ ...prev, category: "", amount: "", description: "" }));
+      setDraft((prev) => ({ ...prev, category: "", amount: "", description: "", vendor_id: "" }));
     } finally {
       setBusy(false);
     }
@@ -98,6 +103,21 @@ export function AdminExpensesPanel({
               onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
             />
           </label>
+          <label className={ui.field}>
+            Vendor (optional)
+            <select
+              className={ui.select}
+              value={draft.vendor_id}
+              onChange={(e) => setDraft((prev) => ({ ...prev, vendor_id: e.target.value }))}
+            >
+              <option value="">None</option>
+              {vendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>
+                  {vendor.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button type="button" onClick={handleAdd} disabled={busy} className={ui.btnPrimary}>
             Submit for approval
           </button>
@@ -112,6 +132,7 @@ export function AdminExpensesPanel({
             <li key={expense.id} className={styles.item}>
               <span>
                 {propertyName(expense.property_id)} — {expense.category} — {expense.amount}
+                {expense.vendor_id ? ` — ${vendorName(expense.vendor_id)}` : ""}
               </span>
               <span className={ui.badge}>{expense.status}</span>
             </li>

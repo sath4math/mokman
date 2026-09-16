@@ -11,6 +11,7 @@ class ExpenseCreate(BaseModel):
     category: str
     amount: float
     description: str | None = None
+    vendor_id: uuid.UUID | None = None
 
 
 class ExpenseOut(BaseModel):
@@ -23,5 +24,6 @@ class ExpenseOut(BaseModel):
     submitted_by: uuid.UUID
     approved_by: uuid.UUID | None
     approved_at: datetime | None
+    vendor_id: uuid.UUID | None
 
     model_config = {"from_attributes": True}

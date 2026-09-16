@@ -8,6 +8,7 @@ from app.models.maintenance import MaintenanceTicket, TicketStatus
 from app.models.property import Property
 from app.models.rbac import Role, RoleAssignment
 from app.models.user import User
+from app.models.vendor import Vendor
 from app.modules.auth.service import get_user_role
 from app.modules.inspections.service import verify_property_access
 from app.modules.maintenance.schemas import ResolveRequest, TicketCreate
@@ -96,17 +97,33 @@ def _require_owner_or_admin(db: Session, ticket: MaintenanceTicket, user_id: uui
 
 
 def assign_ticket(
-    db: Session, ticket_id: uuid.UUID, user_id: uuid.UUID, role: str, assigned_to: uuid.UUID
+    db: Session,
+    ticket_id: uuid.UUID,
+    user_id: uuid.UUID,
+    role: str,
+    assigned_to: uuid.UUID | None,
+    assigned_vendor_id: uuid.UUID | None,
 ) -> MaintenanceTicket:
     ticket = get_ticket(db, ticket_id)
     _require_owner_or_admin(db, ticket, user_id, role)
 
     if ticket.status not in (TicketStatus.OPEN, TicketStatus.ASSIGNED):
         raise InvalidTicketTransitionError
-    if get_user_role(db, assigned_to) != "field_staff":
+    if (assigned_to is None) == (assigned_vendor_id is None):
         raise InvalidAssigneeError
 
-    ticket.assigned_to = assigned_to
+    if assigned_to is not None:
+        if get_user_role(db, assigned_to) != "field_staff":
+            raise InvalidAssigneeError
+        ticket.assigned_to = assigned_to
+        ticket.assigned_vendor_id = None
+    else:
+        vendor = db.get(Vendor, assigned_vendor_id)
+        if vendor is None or not vendor.is_active:
+            raise InvalidAssigneeError
+        ticket.assigned_vendor_id = assigned_vendor_id
+        ticket.assigned_to = None
+
     ticket.status = TicketStatus.ASSIGNED
     db.commit()
     db.refresh(ticket)

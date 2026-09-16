@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.expense import Expense, ExpenseStatus
 from app.models.ledger import LedgerEntryType
 from app.models.property import Property
+from app.models.vendor import Vendor
 from app.modules.expenses.schemas import ExpenseCreate
 from app.modules.finance.service import record_ledger_entry
 from app.modules.properties.service import PropertyNotFoundError, get_property_by_id
@@ -18,6 +19,13 @@ class ExpenseNotFoundError(Exception):
 
 class NotPropertyOwnerError(Exception):
     pass
+
+
+def _vendor_reference_note(db: Session, vendor_id: uuid.UUID | None) -> str | None:
+    if vendor_id is None:
+        return None
+    vendor = db.get(Vendor, vendor_id)
+    return f"vendor:{vendor.name}" if vendor else None
 
 
 def create_expense(db: Session, user_id: uuid.UUID, role: str, data: ExpenseCreate) -> Expense:
@@ -33,6 +41,7 @@ def create_expense(db: Session, user_id: uuid.UUID, role: str, data: ExpenseCrea
         amount=data.amount,
         description=data.description,
         submitted_by=user_id,
+        vendor_id=data.vendor_id,
         status=ExpenseStatus.APPROVED if is_owner_of_property else ExpenseStatus.PENDING,
     )
     if is_owner_of_property:
@@ -51,6 +60,7 @@ def create_expense(db: Session, user_id: uuid.UUID, role: str, data: ExpenseCrea
             amount=expense.amount,
             recorded_by=user_id,
             expense_id=expense.id,
+            reference_note=_vendor_reference_note(db, expense.vendor_id),
         )
     return expense
 
@@ -95,6 +105,7 @@ def approve_expense(db: Session, expense_id: uuid.UUID, user_id: uuid.UUID) -> E
             amount=expense.amount,
             recorded_by=user_id,
             expense_id=expense.id,
+            reference_note=_vendor_reference_note(db, expense.vendor_id),
         )
     return expense
 

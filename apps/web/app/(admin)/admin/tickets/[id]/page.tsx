@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { TicketDetail } from "@/components/ticket-detail";
 import { backendFetch } from "@/lib/backend";
 import { getCurrentUser } from "@/lib/current-user";
-import type { DocumentRecord, FieldStaffUser, MaintenanceTicket } from "@/lib/types";
+import type { DocumentRecord, FieldStaffUser, MaintenanceTicket, Vendor } from "@/lib/types";
 
 import styles from "./ticket-page.module.css";
 
@@ -19,9 +19,10 @@ export default async function AdminTicketDetailPage({
   const ticket = await backendFetch<MaintenanceTicket>(`/maintenance/tickets/${id}`);
   if (!ticket) notFound();
 
-  const [documents, staff] = await Promise.all([
+  const [documents, staff, vendors] = await Promise.all([
     backendFetch<DocumentRecord[]>(`/documents?owner_type=ticket&owner_id=${id}`),
     backendFetch<FieldStaffUser[]>("/maintenance/staff"),
+    backendFetch<Vendor[]>("/vendors?active_only=true"),
   ]);
 
   return (
@@ -32,6 +33,7 @@ export default async function AdminTicketDetailPage({
         viewerId={user.id}
         documents={documents ?? []}
         staff={staff ?? []}
+        vendors={vendors ?? []}
       />
     </main>
   );

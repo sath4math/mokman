@@ -14,7 +14,8 @@ class TicketCreate(BaseModel):
 
 
 class AssignRequest(BaseModel):
-    assigned_to: uuid.UUID
+    assigned_to: uuid.UUID | None = None
+    assigned_vendor_id: uuid.UUID | None = None
 
 
 class ResolveRequest(BaseModel):
@@ -30,6 +31,7 @@ class TicketOut(BaseModel):
     status: TicketStatus
     raised_by: uuid.UUID
     assigned_to: uuid.UUID | None
+    assigned_vendor_id: uuid.UUID | None
     resolution_notes: str | None
     closed_at: datetime | None
     created_at: datetime

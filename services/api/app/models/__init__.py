@@ -28,6 +28,7 @@ from app.models.rbac import Permission, Role, RoleAssignment
 from app.models.rent import InvoiceStatus, RentInvoice
 from app.models.tenant_profile import TenantProfile, TenantVerificationStatus
 from app.models.user import User
+from app.models.vendor import Vendor
 
 __all__ = [
     "AuditLog",
@@ -66,4 +67,5 @@ __all__ = [
     "TicketStatus",
     "Unit",
     "User",
+    "Vendor",
 ]

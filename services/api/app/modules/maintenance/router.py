@@ -99,7 +99,9 @@ def assign(
     db: Session = Depends(get_db),
 ) -> TicketOut:
     try:
-        ticket = assign_ticket(db, ticket_id, current.user.id, current.role, data.assigned_to)
+        ticket = assign_ticket(
+            db, ticket_id, current.user.id, current.role, data.assigned_to, data.assigned_vendor_id
+        )
     except TicketNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket not found") from None
     except PropertyNotFoundError:
@@ -108,7 +110,9 @@ def assign(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner or admin role required") from None
     except InvalidAssigneeError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Assignee must be a field_staff account"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide exactly one of assigned_to (a field_staff account) "
+            "or assigned_vendor_id (an active vendor)",
         ) from None
     except InvalidTicketTransitionError:
         raise HTTPException(
