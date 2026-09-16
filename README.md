@@ -1363,6 +1363,21 @@ watermark doesn't establish a free license.
   red before/after: background fully transparent, shield edges clean,
   no halo. Both `public/mokman-logo.png` and `app/icon.png` replaced
   with this corrected version.
+- **`app/favicon.ico` itself was still the old placeholder** (a plain
+  black-circle/white-triangle icon) — adding `app/icon.png` doesn't
+  replace it, and browsers were still preferring the untouched
+  `favicon.ico` for the actual browser-tab icon over the new
+  `icon.png`. Rebuilt `favicon.ico` from the corrected transparent
+  logo as a proper multi-size ICO (16/32/48/256px, PNG-encoded frames
+  — the modern ICO format all current browsers support, avoiding the
+  legacy BMP-frame encoding this project has no tool to produce)
+  using a small Node script (box-filter downsample with premultiplied
+  alpha, to avoid the white/grey fringing a naive average would cause
+  at the transparent edges) — scratchpad-only, not a project
+  dependency, same as the transparency-fix script above.
+- **Header logo/wordmark sized up** on request: `.logoMark` 32px →
+  44px, `.logo` font-size 1.125rem → 1.5rem
+  (`app/(public)/layout.module.css`).
 
 ## Local development
 
