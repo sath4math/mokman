@@ -1291,10 +1291,10 @@ watermark doesn't establish a free license.
   `auth-form.module.css`), `/pricing` banner. Authenticated owner/
   tenant/admin/field dashboards and the plain `/privacy`/`/terms`
   pages are untouched.
-- Three property-relevant photos added under `apps/web/public/images/`
-  (`luxury-house-pool.jpg` for the landing hero, `cozy-living-room.jpg`
-  for login/register, `apartment-building-day.jpg` for the pricing
-  banner), applied via plain CSS
+- Photos added under `apps/web/public/images/` (`luxury-house-pool.jpg`
+  for the landing hero, `sunlit-bedroom.jpg` for login/register,
+  `apartment-building-day.jpg` for the `/pricing` page banner),
+  applied via plain CSS
   `background: linear-gradient(...), url(...) center / cover no-repeat;`
   — no `next/image`, consistent with this app's CSS-Modules-only
   convention.
@@ -1305,6 +1305,23 @@ watermark doesn't establish a free license.
   `apartment-building-day.jpg`) and the old files deleted. Same
   Unsplash-sourcing approach, same CSS wiring, no code-path changes —
   only the two `url(...)` references and their backing files.
+- **Login/register background swapped** from `cozy-living-room.jpg`
+  (fireplace living room) to `sunlit-bedroom.jpg` (brighter bedroom) —
+  same follow-up request as the landing/pricing swap; old file
+  deleted, only the one `url(...)` reference in
+  `auth-form.module.css` changed.
+- **Landing page: one photo per section** added to For Owners, For
+  Tenants, How It Works, Services, the Pricing preview, and Trust &
+  Compliance — six more photos (`owners-keys.jpg`,
+  `tenants-living-room.jpg`, `how-it-works-desk.jpg`,
+  `services-electrician.jpg`, `pricing-calculator.jpg`,
+  `trust-handshake.jpg`). Unlike the hero/pricing-page banners, these
+  sit as a plain rounded photo strip **between the heading and the
+  card grid**, not behind overlaid text — so no gradient/contrast
+  tuning was needed, just a shared `.sectionImage` base class
+  (`page.module.css`) composed per-section the same way
+  `.sectionMuted`/`.cardOnSurface` already compose `.section`/`.card`
+  elsewhere in this file.
 - Text/button colors on top of each photo were hardcoded to white/
   near-white rather than left on the theme's dark `--color-text`
   tokens — including a `.secondaryAction` override on the landing

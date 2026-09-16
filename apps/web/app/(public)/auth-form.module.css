@@ -6,7 +6,7 @@
   justify-content: center;
   background:
     linear-gradient(to bottom, rgba(5, 15, 10, 0.6), rgba(5, 15, 10, 0.75)),
-    url("/images/cozy-living-room.jpg") center / cover no-repeat;
+    url("/images/sunlit-bedroom.jpg") center / cover no-repeat;
   padding: var(--space-8) var(--space-6) 6rem;
 }
 

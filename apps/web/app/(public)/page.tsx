@@ -51,6 +51,7 @@ export default function HomePage() {
           title="Hand over the work, keep the ownership"
           body="Everything your property needs, run by a team — not a marketplace."
         />
+        <div className={styles.ownersImage} aria-hidden="true" />
         <div className={styles.grid4}>
           {ownerBenefits.map((benefit) => {
             const Icon = ICON_MAP[benefit.icon];
@@ -80,6 +81,7 @@ export default function HomePage() {
           title="A home that's actually looked after"
           body="Rent, maintenance, and your lease — all in one place."
         />
+        <div className={styles.tenantsImage} aria-hidden="true" />
         <div className={styles.grid4}>
           {tenantBenefits.map((benefit) => {
             const Icon = ICON_MAP[benefit.icon];
@@ -102,6 +104,7 @@ export default function HomePage() {
       {/* How It Works */}
       <section id="how-it-works" className={styles.section}>
         <SectionHeading eyebrow="How It Works" title="From registration to reporting" />
+        <div className={styles.howItWorksImage} aria-hidden="true" />
         <div className={styles.stepsGrid}>
           {howItWorks.map((item) => (
             <div key={item.step} className={styles.step}>
@@ -116,6 +119,7 @@ export default function HomePage() {
       {/* Services */}
       <section id="services" className={styles.sectionMuted}>
         <SectionHeading eyebrow="Services" title="Everything a property needs" />
+        <div className={styles.servicesImage} aria-hidden="true" />
         <div className={styles.grid3}>
           {services.map((service) => {
             const Icon = ICON_MAP[service.icon];
@@ -139,6 +143,7 @@ export default function HomePage() {
           title="A package for every level of hands-off"
           body="From self-serve record-keeping to a fully managed portfolio."
         />
+        <div className={styles.pricingImage} aria-hidden="true" />
         <div className={styles.pillRow}>
           {["Starter", "Managed", "Full Care", "Complete"].map((tier) => (
             <span key={tier} className={styles.pill}>
@@ -156,6 +161,7 @@ export default function HomePage() {
       {/* Trust & Compliance */}
       <section className={styles.sectionMuted}>
         <SectionHeading eyebrow="Trust & Compliance" title="Built to be trusted with your property" />
+        <div className={styles.trustImage} aria-hidden="true" />
         <ul className={styles.trustList}>
           {trustPoints.map((point) => (
             <li key={point} className={styles.trustItem}>

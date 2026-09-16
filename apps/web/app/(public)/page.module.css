@@ -32,6 +32,50 @@
   color: var(--color-text-muted);
 }
 
+/* Section imagery */
+.sectionImage {
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: var(--space-8);
+  max-width: 64rem;
+  height: 12rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.ownersImage {
+  composes: sectionImage;
+  background-image: url("/images/owners-keys.jpg");
+}
+
+.tenantsImage {
+  composes: sectionImage;
+  background-image: url("/images/tenants-living-room.jpg");
+}
+
+.howItWorksImage {
+  composes: sectionImage;
+  background-image: url("/images/how-it-works-desk.jpg");
+}
+
+.servicesImage {
+  composes: sectionImage;
+  background-image: url("/images/services-electrician.jpg");
+}
+
+.pricingImage {
+  composes: sectionImage;
+  background-image: url("/images/pricing-calculator.jpg");
+}
+
+.trustImage {
+  composes: sectionImage;
+  background-image: url("/images/trust-handshake.jpg");
+}
+
 /* Hero */
 .heroSection {
   background:
