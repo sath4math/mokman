@@ -1,15 +1,12 @@
-import { redirect } from "next/navigation";
-
 import { LogoutButton } from "@/components/logout-button";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import ui from "@/styles/ui.module.css";
 
 import { OwnerAssistantPanel } from "./owner-assistant-panel";
 import styles from "./assistant.module.css";
 
 export default async function OwnerAssistantPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  await requireVerifiedOwner();
 
   return (
     <main className={styles.main}>

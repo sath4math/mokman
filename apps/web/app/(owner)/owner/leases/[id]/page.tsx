@@ -1,8 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { LeaseDetail } from "@/components/lease-detail";
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type { DocumentRecord, Inspection, Lease, RentInvoice } from "@/lib/types";
 
 import styles from "./lease-page.module.css";
@@ -12,8 +12,7 @@ export default async function OwnerLeaseDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  await requireVerifiedOwner();
 
   const { id } = await params;
   const lease = await backendFetch<Lease>(`/leases/${id}`);

@@ -1,8 +1,8 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { TicketDetail } from "@/components/ticket-detail";
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type { DocumentRecord, FieldStaffUser, MaintenanceTicket, Vendor } from "@/lib/types";
 
 import styles from "./ticket-page.module.css";
@@ -12,8 +12,7 @@ export default async function OwnerTicketDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireVerifiedOwner();
 
   const { id } = await params;
   const ticket = await backendFetch<MaintenanceTicket>(`/maintenance/tickets/${id}`);

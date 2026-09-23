@@ -21,6 +21,7 @@ from app.modules.inspections.service import InspectionNotFoundError, NotPartyToI
 from app.modules.insurance.service import InsurancePolicyNotFoundError
 from app.modules.leases.service import LeaseNotFoundError, NotPartyToLeaseError
 from app.modules.maintenance.service import NotPartyToTicketError, TicketNotFoundError
+from app.modules.owner.service import OwnerProfileAccessError
 from app.modules.properties.service import PropertyNotFoundError
 from app.modules.renovation.service import ProjectNotFoundError
 
@@ -77,6 +78,8 @@ def ask_document(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found") from None
     except ProjectNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found") from None
+    except OwnerProfileAccessError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not your KYC profile") from None
     except UnsupportedDocumentOwnerTypeError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported document owner type") from None
     except UnsupportedDocumentTypeError:

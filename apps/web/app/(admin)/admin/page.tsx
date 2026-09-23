@@ -31,6 +31,11 @@ export default async function AdminOverviewPage() {
         </Link>
       </p>
       <p className={styles.linkRow}>
+        <Link href="/admin/kyc" className={ui.linkPrimary}>
+          Review owner KYC →
+        </Link>
+      </p>
+      <p className={styles.linkRow}>
         <Link href="/admin/checklist-templates" className={ui.linkPrimary}>
           Manage checklist templates →
         </Link>

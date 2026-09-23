@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import type { AuthorizedRepresentative, OwnerProfile, OwnershipType } from "@/lib/types";
+import { DocumentVault } from "@/components/document-vault";
+import type { AuthorizedRepresentative, DocumentRecord, OwnerProfile, OwnershipType } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./profile.module.css";
+
+const KYC_DOCUMENT_TYPES = ["pan_card", "id_proof"];
 
 const EMPTY_PROFILE: OwnerProfile = {
   pan_number: "",
@@ -43,11 +46,19 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function ProfileForm({
+  ownerId,
+  mode = "self",
   initialProfile,
   initialRepresentatives,
+  initialDocuments,
 }: {
+  ownerId: string;
+  /** "admin" submits on the owner's behalf via the admin-only endpoint;
+   * "self" (default) is the owner's own self-service save. */
+  mode?: "self" | "admin";
   initialProfile: OwnerProfile | null;
   initialRepresentatives: AuthorizedRepresentative[];
+  initialDocuments: DocumentRecord[];
 }) {
   const router = useRouter();
   const [profile, setProfile] = useState<OwnerProfile>(initialProfile ?? EMPTY_PROFILE);
@@ -67,7 +78,8 @@ export function ProfileForm({
     setSaved(false);
     setSaving(true);
     try {
-      const response = await fetch("/api/backend/owner/profile", {
+      const url = mode === "admin" ? `/api/backend/owner/profiles/${ownerId}` : "/api/backend/owner/profile";
+      const response = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(profile),
@@ -129,8 +141,21 @@ export function ProfileForm({
 
         <section className={styles.section}>
           <h2 className={styles.sectionTitle}>KYC</h2>
+          <p className={ui.mutedText}>
+            Every field below is required, along with at least one uploaded document (PAN card or ID
+            proof), before this profile can be saved and sent for admin review.
+          </p>
+
+          <DocumentVault
+            ownerType="owner_profile"
+            ownerId={ownerId}
+            initialDocuments={initialDocuments}
+            documentTypes={KYC_DOCUMENT_TYPES}
+          />
+
           <Field label="PAN number">
             <input
+              required
               className={ui.input}
               value={profile.pan_number ?? ""}
               onChange={(e) => set("pan_number", e.target.value)}
@@ -149,6 +174,7 @@ export function ProfileForm({
             </Field>
             <Field label="ID proof number">
               <input
+                required
                 className={ui.input}
                 value={profile.id_proof_number ?? ""}
                 onChange={(e) => set("id_proof_number", e.target.value)}
@@ -161,6 +187,7 @@ export function ProfileForm({
           <h2 className={styles.sectionTitle}>Bank details</h2>
           <Field label="Bank name">
             <input
+              required
               className={ui.input}
               value={profile.bank_name ?? ""}
               onChange={(e) => set("bank_name", e.target.value)}
@@ -169,6 +196,7 @@ export function ProfileForm({
           <div className={styles.row2}>
             <Field label="Account number">
               <input
+                required
                 className={ui.input}
                 value={profile.bank_account_number ?? ""}
                 onChange={(e) => set("bank_account_number", e.target.value)}
@@ -176,6 +204,7 @@ export function ProfileForm({
             </Field>
             <Field label="IFSC">
               <input
+                required
                 className={ui.input}
                 value={profile.bank_ifsc ?? ""}
                 onChange={(e) => set("bank_ifsc", e.target.value)}
@@ -200,6 +229,7 @@ export function ProfileForm({
             {profile.ownership_type === "joint" && (
               <Field label="Your ownership %">
                 <input
+                  required
                   type="number"
                   min={0}
                   max={100}
@@ -219,6 +249,7 @@ export function ProfileForm({
           <div className={styles.row3}>
             <Field label="Name">
               <input
+                required
                 className={ui.input}
                 value={profile.nominee_name ?? ""}
                 onChange={(e) => set("nominee_name", e.target.value)}
@@ -226,6 +257,7 @@ export function ProfileForm({
             </Field>
             <Field label="Relationship">
               <input
+                required
                 className={ui.input}
                 value={profile.nominee_relationship ?? ""}
                 onChange={(e) => set("nominee_relationship", e.target.value)}
@@ -233,6 +265,7 @@ export function ProfileForm({
             </Field>
             <Field label="Phone">
               <input
+                required
                 className={ui.input}
                 value={profile.nominee_phone ?? ""}
                 onChange={(e) => set("nominee_phone", e.target.value)}
@@ -246,6 +279,7 @@ export function ProfileForm({
           <div className={styles.row2}>
             <Field label="Name">
               <input
+                required
                 className={ui.input}
                 value={profile.emergency_contact_name ?? ""}
                 onChange={(e) => set("emergency_contact_name", e.target.value)}
@@ -253,6 +287,7 @@ export function ProfileForm({
             </Field>
             <Field label="Phone">
               <input
+                required
                 className={ui.input}
                 value={profile.emergency_contact_phone ?? ""}
                 onChange={(e) => set("emergency_contact_phone", e.target.value)}
@@ -268,49 +303,51 @@ export function ProfileForm({
         </button>
       </form>
 
-      <section className={styles.repSection}>
-        <h2 className={styles.sectionTitle}>Authorized representatives</h2>
-        <ul className={styles.repList}>
-          {representatives.map((rep) => (
-            <li key={rep.id} className={styles.repItem}>
-              <span>
-                {rep.name}
-                {rep.relationship ? ` (${rep.relationship})` : ""} — {rep.phone ?? rep.email ?? "no contact"}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleRemoveRepresentative(rep.id)}
-                className={ui.linkDanger}
-              >
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className={styles.repForm}>
-          <input
-            className={ui.input}
-            placeholder="Name"
-            value={repDraft.name}
-            onChange={(e) => setRepDraft((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <input
-            className={ui.input}
-            placeholder="Relationship"
-            value={repDraft.relationship}
-            onChange={(e) => setRepDraft((prev) => ({ ...prev, relationship: e.target.value }))}
-          />
-          <input
-            className={ui.input}
-            placeholder="Phone"
-            value={repDraft.phone}
-            onChange={(e) => setRepDraft((prev) => ({ ...prev, phone: e.target.value }))}
-          />
-          <button type="button" onClick={handleAddRepresentative} className={ui.btnSecondary}>
-            Add
-          </button>
-        </div>
-      </section>
+      {mode === "self" && (
+        <section className={styles.repSection}>
+          <h2 className={styles.sectionTitle}>Authorized representatives</h2>
+          <ul className={styles.repList}>
+            {representatives.map((rep) => (
+              <li key={rep.id} className={styles.repItem}>
+                <span>
+                  {rep.name}
+                  {rep.relationship ? ` (${rep.relationship})` : ""} — {rep.phone ?? rep.email ?? "no contact"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveRepresentative(rep.id)}
+                  className={ui.linkDanger}
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className={styles.repForm}>
+            <input
+              className={ui.input}
+              placeholder="Name"
+              value={repDraft.name}
+              onChange={(e) => setRepDraft((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <input
+              className={ui.input}
+              placeholder="Relationship"
+              value={repDraft.relationship}
+              onChange={(e) => setRepDraft((prev) => ({ ...prev, relationship: e.target.value }))}
+            />
+            <input
+              className={ui.input}
+              placeholder="Phone"
+              value={repDraft.phone}
+              onChange={(e) => setRepDraft((prev) => ({ ...prev, phone: e.target.value }))}
+            />
+            <button type="button" onClick={handleAddRepresentative} className={ui.btnSecondary}>
+              Add
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

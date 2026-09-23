@@ -26,6 +26,7 @@ from app.modules.properties.service import (
     list_investment_summaries,
     list_properties_for_owner,
     update_property,
+    update_property_admin,
 )
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -34,6 +35,11 @@ router = APIRouter(prefix="/properties", tags=["properties"])
 def _require_owner(current: CurrentUser) -> None:
     if current.role != "owner":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner role required")
+
+
+def _require_admin(current: CurrentUser) -> None:
+    if current.role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
 
 
 @router.post("", response_model=PropertyOut, status_code=status.HTTP_201_CREATED)
@@ -46,11 +52,31 @@ def create(
     return PropertyOut.model_validate(create_property(db, current.user.id, data))
 
 
+@router.post("/on-behalf/{owner_id}", response_model=PropertyOut, status_code=status.HTTP_201_CREATED)
+def create_on_behalf(
+    owner_id: uuid.UUID,
+    data: PropertyCreate,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PropertyOut:
+    """Admin registers a property for an owner during onboarding, when the
+    owner has provided the details/photos but isn't entering them
+    themselves."""
+    _require_admin(current)
+    return PropertyOut.model_validate(create_property(db, owner_id, data))
+
+
 @router.get("", response_model=list[PropertyOut])
 def list_mine(
-    current: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)
+    owner_id: uuid.UUID | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> list[PropertyOut]:
     if current.role == "admin":
+        # Admin on-behalf-of screen filters to one owner; the global
+        # admin property list (no filter) is unchanged.
+        if owner_id is not None:
+            return [PropertyOut.model_validate(p) for p in list_properties_for_owner(db, owner_id)]
         return [PropertyOut.model_validate(p) for p in list_all_properties(db)]
     _require_owner(current)
     return [PropertyOut.model_validate(p) for p in list_properties_for_owner(db, current.user.id)]
@@ -91,8 +117,10 @@ def update(
     current: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PropertyOut:
-    _require_owner(current)
     try:
+        if current.role == "admin":
+            return PropertyOut.model_validate(update_property_admin(db, property_id, data))
+        _require_owner(current)
         return PropertyOut.model_validate(update_property(db, current.user.id, property_id, data))
     except PropertyNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found") from None

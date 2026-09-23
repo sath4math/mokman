@@ -21,6 +21,12 @@ export interface OwnerProfile {
   package: OwnerPackage;
 }
 
+export interface OwnerProfileAdmin extends OwnerProfile {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
 export interface AuthorizedRepresentative {
   id: string;
   name: string;

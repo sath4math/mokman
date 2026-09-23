@@ -80,6 +80,19 @@ def update_property(db: Session, owner_id: uuid.UUID, property_id: uuid.UUID, da
     return property_
 
 
+def update_property_admin(db: Session, property_id: uuid.UUID, data: PropertyUpdate) -> Property:
+    """Admin editing on behalf of an owner -- same field-update logic as
+    update_property, just without the ownership check (get_property_by_id
+    instead of get_owned_property), matching the admin branch every other
+    /properties/{id} read endpoint already has."""
+    property_ = get_property_by_id(db, property_id)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(property_, field, value)
+    db.commit()
+    db.refresh(property_)
+    return property_
+
+
 def compute_health_score(db: Session, property_id: uuid.UUID) -> PropertyHealthScoreOut:
     today = datetime.now(UTC).date()
 

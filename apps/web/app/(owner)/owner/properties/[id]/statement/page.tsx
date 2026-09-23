@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type { Property, PropertyStatement } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
@@ -20,8 +20,7 @@ export default async function PropertyStatementPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ month?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  await requireVerifiedOwner();
 
   const { id } = await params;
   const { month: monthParam } = await searchParams;

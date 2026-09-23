@@ -1,17 +1,15 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/logout-button";
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type { OwnerProfile, Property } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
 import styles from "./owner-dashboard.module.css";
 
 export default async function OwnerDashboardPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireVerifiedOwner();
 
   const [profile, properties] = await Promise.all([
     backendFetch<OwnerProfile>("/owner/profile"),

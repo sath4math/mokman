@@ -11,7 +11,8 @@ from app.modules.inspections.service import require_party as require_inspection_
 from app.modules.insurance.service import get_policy
 from app.modules.leases.service import get_lease
 from app.modules.leases.service import require_party as require_lease_party
-from app.modules.properties.service import get_owned_property
+from app.modules.owner.service import OwnerProfileAccessError
+from app.modules.properties.service import get_owned_property, get_property_by_id
 from app.modules.renovation.service import get_project
 
 
@@ -35,7 +36,13 @@ def verify_document_access(db: Session, user_id: uuid.UUID, role: str, owner_typ
     (list_documents), so a top-level import here would cycle.
     """
     if owner_type == "property":
-        get_owned_property(db, user_id, owner_id)
+        # Admin manages properties on behalf of an owner (onboarding,
+        # uploading photos/videos) -- same admin-bypass shape as every
+        # /properties/{id} read endpoint already uses.
+        if role == "admin":
+            get_property_by_id(db, owner_id)
+        else:
+            get_owned_property(db, user_id, owner_id)
     elif owner_type == "lease":
         lease = get_lease(db, owner_id)
         require_lease_party(db, lease, user_id)
@@ -56,6 +63,12 @@ def verify_document_access(db: Session, user_id: uuid.UUID, role: str, owner_typ
     elif owner_type == "renovation_project":
         project = get_project(db, owner_id)
         get_owned_property(db, user_id, project.property_id)
+    elif owner_type == "owner_profile":
+        # owner_id here is the profile's user_id (OwnerProfile's own PK) --
+        # no row lookup needed, just confirm the caller is that owner or an
+        # admin (who needs to view KYC documents to approve/reject them).
+        if role != "admin" and user_id != owner_id:
+            raise OwnerProfileAccessError
     else:
         raise UnsupportedDocumentOwnerTypeError
 

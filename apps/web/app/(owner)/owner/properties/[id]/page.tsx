@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { DocumentVault } from "@/components/document-vault";
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type {
   Asset,
   ComplianceDue,
@@ -44,8 +44,7 @@ export default async function PropertyDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  await requireVerifiedOwner();
 
   const { id } = await params;
   const [
@@ -230,7 +229,16 @@ export default async function PropertyDetailPage({
         ownerType="property"
         ownerId={property.id}
         initialDocuments={documents ?? []}
-        documentTypes={["noc", "society_notice", "tax_receipt", "utility_bill", "sale_agreement", "other"]}
+        documentTypes={[
+          "photo",
+          "video",
+          "noc",
+          "society_notice",
+          "tax_receipt",
+          "utility_bill",
+          "sale_agreement",
+          "other",
+        ]}
       />
     </main>
   );

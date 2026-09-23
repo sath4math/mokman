@@ -1,8 +1,6 @@
-import { redirect } from "next/navigation";
-
 import { LogoutButton } from "@/components/logout-button";
 import { backendFetch } from "@/lib/backend";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireVerifiedOwner } from "@/lib/current-user";
 import type {
   ExpenseAnomaly,
   InvestmentSummary,
@@ -19,8 +17,7 @@ function formatPercent(value: number | null): string {
 }
 
 export default async function OwnerInsightsPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  await requireVerifiedOwner();
 
   const [profitability, anomalies, recurringProblems, escalationProjections, investmentPortfolio] =
     await Promise.all([
