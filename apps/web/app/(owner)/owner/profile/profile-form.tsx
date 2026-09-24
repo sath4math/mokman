@@ -7,6 +7,7 @@ import { DocumentVault } from "@/components/document-vault";
 import type { AuthorizedRepresentative, DocumentRecord, OwnerProfile, OwnershipType } from "@/lib/types";
 import ui from "@/styles/ui.module.css";
 
+import { PackageOfferings } from "./package-offerings";
 import styles from "./profile.module.css";
 
 const KYC_DOCUMENT_TYPES = ["pan_card", "id_proof"];
@@ -137,6 +138,7 @@ export function ProfileForm({
               ))}
             </select>
           </Field>
+          <PackageOfferings package={profile.package} />
         </section>
 
         <section className={styles.section}>
