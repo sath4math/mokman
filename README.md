@@ -100,6 +100,16 @@ close this gap: either get the current production admin credentials from
 the user, or run the reset script against Railway's production container
 (rotates a live credential — confirm with the user first, don't just do it).
 
+**Resolved 2026-09-24** (see "Owner KYC review & onboarding" below): ran
+`seed_demo_users.py --reset` against the production database via a
+`railway connect postgres --tunnel-only` SSH tunnel (public networking
+never enabled), and confirmed the new `admin@mokman.com` credential with
+a real browser login against `www.mokman.com` reaching `/admin/kyc` with
+live data. This is the first time admin login itself has been verified in
+prod since this gap was first flagged — every "route-existence
+verification only" caveat on phases since 4b still stands for the rest of
+each phase's admin-specific flows, this only confirms the login step.
+
 ### ✅ Phase 4a — Maintenance Ticketing (done, live, verified in prod for owner+tenant)
 Phase 4 ("Property Operations") is explicitly the doc's largest phase, so
 it's split: this pass is ticketing only.
@@ -1378,6 +1388,66 @@ watermark doesn't establish a free license.
 - **Header logo/wordmark sized up** on request: `.logoMark` 32px →
   44px, `.logo` font-size 1.125rem → 1.5rem
   (`app/(public)/layout.module.css`).
+
+### 🔐 Owner KYC review & onboarding (deployed)
+
+Not a phase-doc item — found while auditing Phase 1's "done" claim:
+`OwnerProfile.kyc_status` defaulted to `pending` at row creation and
+**nothing in the entire codebase ever moved it** — no admin endpoint, no
+approval action, no document requirement, no gate on the rest of the app.
+Every owner profile was permanently stuck on `pending` regardless of what
+was actually submitted. Closed end to end as a follow-up, then extended
+mid-task at the user's request to cover admin acting on an owner's behalf.
+
+- **Mandatory submission**: `OwnerProfileIn` now requires every KYC field
+  (PAN, ID proof, bank details, nominee, emergency contact —
+  `ownership_percentage` only when ownership is joint) plus at least one
+  uploaded document (PAN card or ID proof), via the **existing** document
+  vault extended to a new `owner_profile` `owner_type`
+  (`documents/service.py`'s `verify_document_access`). `OwnerProfileOut`
+  stays fully nullable as a separate schema so pre-existing incomplete
+  profiles (several already in the DB from earlier phase testing) still
+  read back without a validation error.
+- **Admin review** (`/admin/kyc`, new `app/modules/owner` endpoints):
+  list-by-status, approve, reject-with-reason, each writing an `AuditLog`
+  row — same pattern 4c's vendor blacklist already established. A
+  rejected owner who edits and resaves is automatically moved back to
+  `pending` rather than staying stuck on `rejected` forever.
+- **Access gate**: an owner without verified KYC is redirected to a new
+  `/owner/kyc-pending` from every owner page except their own profile
+  (`requireVerifiedOwner()` in `lib/current-user.ts`, replacing the
+  per-page `getCurrentUser` + redirect pattern on nine pages). Approval
+  unlocks the rest of the app immediately — no separate onboarding step.
+- **Admin on-behalf-of** (`/admin/owners/[ownerId]`, extended scope): an
+  admin can fill in and submit an owner's KYC, and separately register a
+  property with photos/videos for them, when the owner supplies the
+  details out of band. Reuses the exact same `ProfileForm` and
+  `NewPropertyForm` components owners use themselves (`mode="admin"` /
+  `onBehalfOfOwnerId` props) rather than a parallel admin-only form.
+  Found and fixed a real gap along the way: `verify_document_access`'s
+  `property` branch had no admin bypass at all — admin couldn't view or
+  upload property documents for any property before this.
+- **Package offerings**: the owner profile form now shows the selected
+  package's included/add-on features live as the dropdown changes,
+  reusing the existing `ownerPackages` data from the public `/pricing`
+  page rather than duplicating the 23-feature matrix.
+- **AI document-extraction was built, then explicitly reverted** at the
+  user's request ("let's avoid extraction now") in favor of the
+  mandatory-fields-plus-document-requirement approach above — a deliberate
+  scope narrowing mid-task, not an abandoned feature.
+- **Verified**: locally end-to-end (mandatory-field/missing-document
+  rejections, approve/reject, the access gate, the full admin
+  on-behalf-of flow including a photo immediately visible to the owner
+  after approval) and **in production** against real accounts (owner
+  self-service registration → gate → document upload → save; the package
+  offerings display) via Playwright, plus backend ruff/mypy and frontend
+  lint/typecheck/build. Admin-side production verification (approve/
+  reject and on-behalf-of screens against real data) is not yet done —
+  same standing gap as every phase since 4b, now at least unblocked since
+  admin login itself is verified in prod (see the Phase 3 gap note above).
+- Test accounts created during verification (local and production) were
+  deleted afterward — a data cleanup, not a code change, so there's no
+  commit for it.
 
 ## Local development
 
